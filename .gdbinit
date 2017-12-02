@@ -1,5 +1,7 @@
 target remote :3333
 
+monitor reset halt
+
 # print demangled symbols by default
 set print asm-demangle on
 
@@ -17,5 +19,5 @@ monitor arm semihosting enable
 # # enable ITM port 0
 # monitor itm port 0 on
 
-load
-step
+load ./target/thumbv7m-none-eabi/examples/hello
+# step
