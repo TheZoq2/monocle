@@ -2,9 +2,13 @@ MEMORY
 {
   /* NOTE K = KiBi = 1024 bytes */
   /* TODO Adjust these memory regions to match your device memory layout */
-  FLASH : ORIGIN = 0xBAAAAAAD, LENGTH = 0K
-  RAM : ORIGIN = 0xBAAAAAAD, LENGTH = 0K
+  FLASH : ORIGIN = 0x08000000, LENGTH = 64K
+  RAM : ORIGIN = 0x20000000, LENGTH = 20K
 }
+/* This is specially for STM32F103C8T6 for the Blue pill board */
+/* Datasheet: http://www.st.com/content/ccc/resource/technical/document/datasheet/33/d4/6f/1d/df/0b/4c/6d/CD00161566.pdf/files/CD00161566.pdf/jcr:content/translations/en.CD00161566.pdf
+*/
+
 
 /* This is where the call stack will be allocated. */
 /* The stack is of the full descending type. */

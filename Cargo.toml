@@ -1,20 +1,26 @@
 [package]
-authors = ["Jorge Aparicio <jorge@japaric.io>"]
+authors = ["Jorge Aparicio <jorge@japaric.io>", "Abhijit Bose @boseji <salearj@hotmail.com>"]
 categories = ["embedded", "no-std"]
 description = "A template for building applications for ARM Cortex-M microcontrollers"
 keywords = ["arm", "cortex-m", "template"]
 license = "MIT OR Apache-2.0"
-name = "cortex-m-quickstart"
+name = "rust-bluepill-quickstart"
 repository = "https://github.com/japaric/cortex-m-quickstart"
 version = "0.2.1"
 
-[dependencies]
-cortex-m = "0.3.0"
-cortex-m-semihosting = "0.2.0"
+[dependencies.cortex-m-semihosting]
+version = "0.2.0"
 
 [dependencies.cortex-m-rt]
 features = ["abort-on-panic"]
 version = "0.3.3"
+
+[dependencies.cortex-m]
+version = "0.3.0"
+
+[dependencies.stm32f103xx]
+version = "0.7.5"
+features = ["rt"]
 
 [profile.release]
 debug = true
