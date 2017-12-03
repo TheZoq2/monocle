@@ -7,37 +7,31 @@ extern crate cortex_m_semihosting;
 //#[macro_use(exception, interrupt)]
 extern crate stm32f103xx;
 
-use core::cell::RefCell;
-//use core::fmt::Write;
-
-use cortex_m::interrupt::{self, Mutex};
-//use cortex_m::peripheral::SystClkSource;
-use cortex_m_semihosting::hio::{self, HStdout};
-//use stm32f103xx::Interrupt;
 use stm32f103xx::GPIOC;
 use stm32f103xx::RCC;
 
-static HSTDOUT: Mutex<RefCell<Option<HStdout>>> =
-    Mutex::new(RefCell::new(None));
-
 fn main() {
-    interrupt::free(|cs| {
-        let hstdout = HSTDOUT.borrow(cs);
-        if let Ok(fd) = hio::hstdout() {
-            *hstdout.borrow_mut() = Some(fd);
-        }
+    // RCC IOPORT C Enable
+    // Clock enabled for GPIOC
+    unsafe {
+        (*RCC.get()).apb2enr.modify(|_, w| w.iopcen().enabled());
+    }
 
-        unsafe {
-            (*RCC.get()).apb2enr.modify(|_, w| w.iopcen().enabled());
-        }
+    // BIT Set Reset Register - BitSet for Bit13
+    // Output register is Set as HIGH
+    unsafe {
+        (*GPIOC.get()).bsrr.write(|w| w.bs13().set());
+    }
 
-        unsafe {
-            (*GPIOC.get()).bsrr.write(|w| w.bs13().set());
-            (*GPIOC.get()).crh.modify(|_, w| w.mode13().output().cnf13().push());
-        }
+    // GPIO MODER register & CNF register - BIT 13 Set 
+    // Configure port as PUSH-PULL HIGH speed OUTPUT port
+    unsafe {
+        (*GPIOC.get()).crh.modify(|_, w| w.mode13().output().cnf13().push());
+    }
 
-        unsafe {
-            (*GPIOC.get()).bsrr.write(|w| w.br13().reset());
-        }
-    });
+    // BIT Set Reset Register - BitReset for Bit13
+    // Output register is Set as LOW and Active Low LED lights up
+    unsafe {
+        (*GPIOC.get()).bsrr.write(|w| w.br13().reset());
+    }   
 }
