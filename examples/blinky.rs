@@ -1,4 +1,6 @@
 #![deny(warnings)]
+#![deny(unused_variables)]
+#![deny(dead_code)]
 #![feature(const_fn)]
 #![no_std]
 
@@ -9,6 +11,7 @@ extern crate stm32f103xx;
 
 use stm32f103xx::GPIOC;
 use stm32f103xx::RCC;
+use cortex_m::asm::nop;
 
 fn main() {
     // RCC IOPORT C Enable
@@ -34,4 +37,23 @@ fn main() {
     unsafe {
         (*GPIOC.get()).bsrr.write(|w| w.br13().reset());
     }   
+
+    loop {
+        delay();
+        //nop();
+        unsafe {
+            (*GPIOC.get()).bsrr.write(|w| w.bs13().set());
+        }
+        delay();
+        //nop();
+        unsafe {
+            (*GPIOC.get()).bsrr.write(|w| w.br13().reset());
+        }   
+    }
+}
+
+fn delay() {
+    for _x in 0..13_125 {
+        nop();
+    }
 }
