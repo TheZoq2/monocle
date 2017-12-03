@@ -1,6 +1,6 @@
-#![deny(warnings)]
+//#![deny(warnings)]
 #![deny(unused_variables)]
-#![deny(dead_code)]
+//#![deny(dead_code)]
 #![deny(non_snake_case)]
 #![feature(const_fn)]
 #![no_std]
@@ -153,23 +153,33 @@ fn tick() {
 
 }
 
-//pub static mut BUF: [u16; 20usize] = [0; 20];
-pub static BUF: [u16; 20usize] = [0; 20];
-//pub static mut CTR_BUF:usize = 0;
-pub static CTR_BUF:usize = 0;
+pub static mut BUF: [u16; 20usize] = [0; 20];
+//pub static BUF: [u16; 20usize] = [0; 20];
+pub static mut CTR_BUF:usize = 0;
+//pub static CTR_BUF:usize = 0;
 
 interrupt!(USART1, rxe);
 
 fn rxe() {
     let b:u16;
     unsafe {
-    
         b = (*stm32f103xx::USART1.get()).dr.read().dr().bits();    
         if CTR_BUF < 19 {
             CTR_BUF = CTR_BUF + 1;
             BUF[CTR_BUF] = b;
-
         }
 
+    }
+}
+
+fn txmt(data: &u16) {
+    unsafe {
+        while (*stm32f103xx::USART1.get()).sr.read().txe().bit_is_clear() {
+            nop();
+        }
+        (*stm32f103xx::USART1.get()).dr.write(|w| {
+            let val:u32 = (*data) as u32;
+            w.bits(val)
+        });
     }
 }
