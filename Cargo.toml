@@ -1,12 +1,12 @@
 [package]
-authors = ["Jorge Aparicio <jorge@japaric.io>", "Abhijit Bose @boseji <salearj@hotmail.com>"]
+authors = ["Frans Skarman"]
 categories = ["embedded", "no-std"]
-description = "A template for building applications for ARM Cortex-M microcontrollers"
-keywords = ["arm", "cortex-m", "template"]
+description = "Digital signal reader"
+keywords = ["arm", "cortex-m"]
 license = "MIT OR Apache-2.0"
-name = "rust-bluepill-quickstart"
-repository = "https://github.com/japaric/cortex-m-quickstart"
-version = "0.2.1"
+name = "monocle"
+repository = "https://github.com/thezoq2/monocle"
+version = "0.0.1"
 
 [profile.dev]
 codegen-units = 1
