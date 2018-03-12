@@ -24,7 +24,7 @@ use embedded_hal::serial::Write;
 
 use rtfm::{app, Threshold};
 
-const BUFFER_SIZE: usize = 256;
+const BUFFER_SIZE: usize = 200;
 
 
 app! {
@@ -82,17 +82,20 @@ fn init(p: init::Peripherals) -> init::LateResources {
     let frequency = timer.frequency();
 
 
+    let buffer1 = ArrayVec::new();
+    let buffer2 = ArrayVec::new();
+
     // Setup pins as inputs
     // Setup exti0 to trigger on rising and falling edge
     // Enable exti1 line 0
-    p.device.EXTI.imr.modify(|_r, w| w.mr0().set_bit());
-    // Enable both rising edge and falling edge trigger
-    p.device.EXTI.rtsr.modify(|_r, w| w.tr0().set_bit());
-    p.device.EXTI.ftsr.modify(|_r, w| w.tr0().set_bit());
-
+    // p.device.EXTI.imr.modify(|_r, w| w.mr0().set_bit());
+    // // Enable both rising edge and falling edge trigger
+    // p.device.EXTI.rtsr.modify(|_r, w| w.tr0().set_bit());
+    // p.device.EXTI.ftsr.modify(|_r, w| w.tr0().set_bit());
+    //
     init::LateResources {
-        BUFFER1: ArrayVec::new(),
-        BUFFER2: ArrayVec::new(),
+        BUFFER1: buffer1,
+        BUFFER2: buffer2,
         START_TIME: start_time,
         TIMER_FREQ: frequency,
     }
