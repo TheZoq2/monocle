@@ -1,6 +1,6 @@
 unexport CARGO_INCREMENTAL
 
-TARGET_NAME=thumbv7em-none-eabi
+TARGET_NAME=thumbv7m-none-eabi
 
 debug:
 	make build
@@ -11,10 +11,10 @@ release:
 	arm-none-eabi-gdb target/${TARGET_NAME}/release/rust-bluepill-quickstart
 
 build:
-	xargo build
+	xargo build --target ${TARGET_NAME}
 
 gdb:
-	arm-none-eabi-gdb target/${TARGET_NAME}/debug/rust-bluepill-quickstart
+	arm-none-eabi-gdb target/${TARGET_NAME}/debug/monocle
 
 
 openocd:
