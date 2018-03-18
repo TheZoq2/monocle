@@ -21,3 +21,6 @@ openocd:
 	# openocd -f interface/stlink-v2.cfg -f target/stm32f1x.cfg
 	# openocd -f interface/stlink-v2.cfg -f target/stm32f1x.cfg -f bluepill.cfg
 	openocd -f bluepill.cfg
+
+doc:
+	xargo doc --target ${TARGET_NAME}
