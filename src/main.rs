@@ -22,10 +22,12 @@ use stm32f103xx_hal::prelude::*;
 use stm32f103xx_hal::time;
 use stm32f103xx_hal::timer;
 use stm32f103xx_hal::serial;
+use stm32f103xx_hal::gpio::{self, gpioa};
 use embedded_hal::serial::Write;
 use embedded_hal_time::{Millisecond, RealCountDown};
 use stm32f103xx::USART1;
 use stm32f103xx::TIM2 as HwTIM2;
+use stm32f103xx::EXTI;
 
 use rtfm::{app, Threshold};
 
@@ -39,23 +41,24 @@ app! {
     device: stm32f103xx,
 
     resources: {
-        static BUFFER1: ArrayVec<[PinData; BUFFER_SIZE]>;
-        static BUFFER2: ArrayVec<[PinData; BUFFER_SIZE]>;
+        static BUFFER: ArrayVec<[PinData; BUFFER_SIZE]>;
         static START_TIME: time::Instant;
         static TIMER_FREQ: time::Hertz;
         static TX: serial::Tx<USART1>;
         static COUNTDOWN: timer::Timer<HwTIM2>;
+        static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
+        static EXTI: EXTI;
     },
 
     // Both SYS_TICK and TIM2 have access to the `COUNTER` data
     tasks: {
         TIM2: {
             path: sender,
-            resources: [BUFFER1, BUFFER2, START_TIME, TIMER_FREQ, TX, COUNTDOWN]
+            resources: [BUFFER, START_TIME, TIMER_FREQ, TX, COUNTDOWN]
         },
-        EXTI0: {
+        EXTI9_5: {
             path: onpin1,
-            resources: [BUFFER1, START_TIME, COUNTDOWN]
+            resources: [BUFFER, START_TIME, COUNTDOWN, PIN1, EXTI]
         }
     },
 }
@@ -63,7 +66,7 @@ app! {
 fn init(p: init::Peripherals) -> init::LateResources {
     let mut rcc = p.device.RCC.constrain();
     let mut flash = p.device.FLASH.constrain();
-    let gpioa = p.device.GPIOA.split(&mut rcc.apb2);
+    let mut gpioa = p.device.GPIOA.split(&mut rcc.apb2);
     let mut gpiob = p.device.GPIOB.split(&mut rcc.apb2);
     let mut afio = p.device.AFIO.constrain(&mut rcc.apb2);
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
@@ -90,24 +93,24 @@ fn init(p: init::Peripherals) -> init::LateResources {
     let frequency = timer.frequency();
 
 
-    let buffer1 = ArrayVec::new();
-    let buffer2 = ArrayVec::new();
+    let buffer = ArrayVec::new();
 
-    // Setup pins as inputs
-    // Setup exti0 to trigger on rising and falling edge
-    // Enable exti1 line 0
-    // p.device.EXTI.imr.modify(|_r, w| w.mr0().set_bit());
-    // // Enable both rising edge and falling edge trigger
-    // p.device.EXTI.rtsr.modify(|_r, w| w.tr0().set_bit());
-    // p.device.EXTI.ftsr.modify(|_r, w| w.tr0().set_bit());
-    //
+    // Configure pin a8 as a floating input
+    let pin1 = gpioa.pa8.into_floating_input(&mut gpioa.crh);
+    // Mask exti8
+    p.device.EXTI.imr.modify(|_r, w| w.mr8().set_bit());
+    // Trigger exti8 for both rising and falling edge
+    p.device.EXTI.rtsr.modify(|_r, w| w.tr8().set_bit());
+    p.device.EXTI.ftsr.modify(|_r, w| w.tr8().set_bit());
+
     init::LateResources {
-        BUFFER1: buffer1,
-        BUFFER2: buffer2,
+        BUFFER: buffer,
         START_TIME: start_time,
         TIMER_FREQ: frequency,
         TX: tx,
         COUNTDOWN: countdown,
+        PIN1: pin1,
+        EXTI: p.device.EXTI
     }
 }
 
@@ -118,14 +121,23 @@ fn idle() -> ! {
 }
 
 fn sender(_t: &mut Threshold, mut r: TIM2::Resources) {
-    r.COUNTDOWN.start_real(TIMEOUT);
+    // Call wait to get rid of the interrupt flag
+    r.COUNTDOWN.wait();
+
     r.TX.write(b'a');
 }
 
-fn onpin1(_t: &mut Threshold, mut r: EXTI0::Resources) {
+fn onpin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
     // Read the time
     let time = r.START_TIME.elapsed();
-    // Figure out if this was a rising or falling edge
     // Reset interrupt flag
-    unimplemented!()
+    r.EXTI.pr.modify(|_r, w| w.pr8().set_bit());
+
+    // Figure out if this was a rising or falling edge
+    if r.PIN1.is_high() {
+        // Rising
+    }
+    else {
+        // Falling
+    }
 }
