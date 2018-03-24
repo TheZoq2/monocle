@@ -9,13 +9,15 @@ extern crate stm32f103xx;
 extern crate stm32f103xx_hal;
 extern crate embedded_hal;
 extern crate embedded_hal_time;
+extern crate heapless;
 
 extern crate arrayvec;
 
-mod data;
+extern crate api;
 
-use arrayvec::ArrayVec;
-use data::PinData;
+use heapless::ring_buffer::{RingBuffer, Consumer, Producer};
+use api::data::Reading;
+
 
 // use stm32f103xx_hal::flash::FlashExt;
 use stm32f103xx_hal::prelude::*;
@@ -23,7 +25,6 @@ use stm32f103xx_hal::time;
 use stm32f103xx_hal::timer;
 use stm32f103xx_hal::serial;
 use stm32f103xx_hal::gpio::{self, gpioa};
-use embedded_hal::serial::Write;
 use embedded_hal_time::{Millisecond, RealCountDown};
 use stm32f103xx::USART1;
 use stm32f103xx::TIM2 as HwTIM2;
@@ -36,29 +37,30 @@ const BUFFER_SIZE: usize = 200;
 // Transmission timeout
 const TIMEOUT: Millisecond = Millisecond(500);
 
+static mut _RB: RingBuffer<Reading, [Reading; BUFFER_SIZE]> = RingBuffer::new();
 
 app! {
     device: stm32f103xx,
 
     resources: {
-        static BUFFER: ArrayVec<[PinData; BUFFER_SIZE]>;
+        static CONSUMER: Consumer<'static, Reading, [Reading; BUFFER_SIZE]>;
+        static PRODUCER: Producer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static START_TIME: time::Instant;
-        static TIMER_FREQ: time::Hertz;
         static TX: serial::Tx<USART1>;
         static COUNTDOWN: timer::Timer<HwTIM2>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
         static EXTI: EXTI;
     },
 
+    idle: {
+        resources: [CONSUMER, TX]
+    },
+
     // Both SYS_TICK and TIM2 have access to the `COUNTER` data
     tasks: {
-        TIM2: {
-            path: sender,
-            resources: [BUFFER, START_TIME, TIMER_FREQ, TX, COUNTDOWN]
-        },
         EXTI9_5: {
-            path: onpin1,
-            resources: [BUFFER, START_TIME, COUNTDOWN, PIN1, EXTI]
+            path: on_pin1,
+            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI]
         }
     },
 }
@@ -93,8 +95,6 @@ fn init(p: init::Peripherals) -> init::LateResources {
     let frequency = timer.frequency();
 
 
-    let buffer = ArrayVec::new();
-
     // Configure pin a8 as a floating input
     let pin1 = gpioa.pa8.into_floating_input(&mut gpioa.crh);
     // Mask exti8
@@ -103,10 +103,12 @@ fn init(p: init::Peripherals) -> init::LateResources {
     p.device.EXTI.rtsr.modify(|_r, w| w.tr8().set_bit());
     p.device.EXTI.ftsr.modify(|_r, w| w.tr8().set_bit());
 
+    let (producer, consumer) = unsafe{_RB.split()};
+
     init::LateResources {
-        BUFFER: buffer,
+        CONSUMER: consumer,
+        PRODUCER: producer,
         START_TIME: start_time,
-        TIMER_FREQ: frequency,
         TX: tx,
         COUNTDOWN: countdown,
         PIN1: pin1,
@@ -114,30 +116,26 @@ fn init(p: init::Peripherals) -> init::LateResources {
     }
 }
 
-fn idle() -> ! {
+fn idle(_t: &mut Threshold, mut r: idle::Resources) -> ! {
     loop {
-        rtfm::wfi();
+        match r.CONSUMER.dequeue() {
+            Some(reading) => for byte in reading.encode().iter() {
+                block!(r.TX.write(*byte)).unwrap()
+            }
+            None => {
+                rtfm::wfi();
+            }
+        }
     }
 }
 
-fn sender(_t: &mut Threshold, mut r: TIM2::Resources) {
-    // Call wait to get rid of the interrupt flag
-    r.COUNTDOWN.wait();
-
-    r.TX.write(b'a');
-}
-
-fn onpin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
+fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
     // Read the time
     let time = r.START_TIME.elapsed();
     // Reset interrupt flag
     r.EXTI.pr.modify(|_r, w| w.pr8().set_bit());
 
-    // Figure out if this was a rising or falling edge
-    if r.PIN1.is_high() {
-        // Rising
-    }
-    else {
-        // Falling
-    }
+    let reading = Reading::new(time, r.PIN1.is_high(), true);
+    // TODO: Error handling
+    r.PRODUCER.enqueue(reading);
 }
