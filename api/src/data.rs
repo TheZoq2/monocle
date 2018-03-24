@@ -1,3 +1,5 @@
+use error::{Result, Error};
+
 #[derive(Debug, PartialEq)]
 pub struct State {
     data: u8
@@ -54,13 +56,23 @@ impl Reading {
     }
 
     pub fn encode(&self) -> [u8; 5] {
-        [
-            self.state.encode(),
-            (self.time >> 24) as u8,
-            (self.time >> 16) as u8,
-            (self.time >> 8) as u8,
-            (self.time) as u8
-        ]
+        let mut buffer = [0;5];
+        self.encode_to_buffer(&mut buffer).unwrap();
+        buffer
+    }
+
+    pub fn encode_to_buffer(&self, buf: &mut [u8]) -> Result<()> {
+        if buf.len() < 5 {
+            Err(Error::BufferTooSmall(buf.len(), 5))
+        }
+        else {
+            buf[0] = self.state.encode();
+            buf[1] = (self.time >> 24) as u8;
+            buf[2] = (self.time >> 16) as u8;
+            buf[3] = (self.time >> 8) as u8;
+            buf[4] = (self.time) as u8;
+            Ok(())
+        }
     }
 
 }
