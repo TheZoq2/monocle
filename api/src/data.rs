@@ -1,6 +1,4 @@
-use error::{Result, Error};
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct State {
     data: u8
 }
@@ -27,7 +25,7 @@ impl State {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Reading {
     pub state: State,
     pub time: u32
@@ -40,55 +38,6 @@ impl Reading {
             time
         }
     }
-
-    pub fn decode(bytes: [u8; 5]) -> Self {
-        let state = State::decode(bytes[0]);
-        let time
-            = (bytes[1] as u32) << 24
-            | (bytes[2] as u32) << 16
-            | (bytes[3] as u32) << 8
-            | (bytes[4] as u32);
-
-        Self {
-            state,
-            time
-        }
-    }
-
-    pub fn encode(&self) -> [u8; 5] {
-        let mut buffer = [0;5];
-        self.encode_to_buffer(&mut buffer).unwrap();
-        buffer
-    }
-
-    pub fn encode_to_buffer(&self, buf: &mut [u8]) -> Result<()> {
-        if buf.len() < 5 {
-            Err(Error::BufferTooSmall(buf.len(), 5))
-        }
-        else {
-            buf[0] = self.state.encode();
-            buf[1] = (self.time >> 24) as u8;
-            buf[2] = (self.time >> 16) as u8;
-            buf[3] = (self.time >> 8) as u8;
-            buf[4] = (self.time) as u8;
-            Ok(())
-        }
-    }
-
 }
 
 
-#[cfg(test)]
-mod apitests {
-    use super::*;
-
-    #[test]
-    fn encode_decode_works() {
-        let reading = Reading::new(500, true, true);
-        let encoded = reading.encode();
-
-        let decoded = Reading::decode(encoded);
-
-        assert_eq!(reading, decoded);
-    }
-}

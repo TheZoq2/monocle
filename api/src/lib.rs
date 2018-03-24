@@ -1,7 +1,9 @@
 #![no_std]
 
-pub mod error;
+#[macro_use]
+extern crate serde_derive;
+
+extern crate ssmarshal;
+
 pub mod data;
 pub mod messages;
-
-mod util;
