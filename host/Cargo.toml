@@ -6,3 +6,4 @@ authors = ["TheZoq2 <frans.skarman@gmail.com>"]
 [dependencies]
 serial = "0.4.0"
 api = {path = "../api"}
+ssmarshal = {version = "1.0", default-features = false}

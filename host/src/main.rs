@@ -1,7 +1,9 @@
 extern crate serial;
 extern crate api;
+extern crate ssmarshal;
 
 use api::data;
+use ssmarshal::deserialize;
 
 use std::{env, io};
 use std::time::Duration;
@@ -25,9 +27,10 @@ fn run_host<T: SerialPort>(port: &mut T) -> io::Result<api::data::Reading> {
     })?;
 
     port.set_timeout(Duration::from_millis(2000))?;
-    let mut buf = [0;5];
+    let mut buf = [0;10];
 
-    port.read_exact(&mut buf)?;
+    let read_amount = port.read(&mut buf)?;
 
-    Ok(api::data::Reading::decode(buf))
+    // TODO: Proper error handling
+    Ok(deserialize::<data::Reading>(&buf[..read_amount]).unwrap().0)
 }

@@ -10,6 +10,7 @@ extern crate stm32f103xx_hal;
 extern crate embedded_hal;
 extern crate embedded_hal_time;
 extern crate heapless;
+extern crate ssmarshal;
 
 extern crate arrayvec;
 
@@ -17,6 +18,8 @@ extern crate api;
 
 use heapless::ring_buffer::{RingBuffer, Consumer, Producer};
 use api::data::Reading;
+
+use ssmarshal::serialize;
 
 
 // use stm32f103xx_hal::flash::FlashExt;
@@ -119,8 +122,12 @@ fn init(p: init::Peripherals) -> init::LateResources {
 fn idle(_t: &mut Threshold, mut r: idle::Resources) -> ! {
     loop {
         match r.CONSUMER.dequeue() {
-            Some(reading) => for byte in reading.encode().iter() {
-                block!(r.TX.write(*byte)).unwrap()
+            Some(reading) => {
+                let mut buffer = [0; 10];
+                let read_amount = serialize(&mut buffer, &reading).unwrap();
+                for byte in buffer[..read_amount].iter() {
+                    block!(r.TX.write(*byte)).unwrap()
+                }
             }
             None => {
                 rtfm::wfi();

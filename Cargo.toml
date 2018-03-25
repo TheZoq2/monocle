@@ -26,6 +26,7 @@ nb = "0.1.1"
 heapless="0.2.4"
 cortex-m-semihosting = "0.2.0"
 api = {path = "api"}
+ssmarshal = {version = "1.0", default-features = false}
 
 [dependencies.embedded-hal]
 version = "0.1.1"
