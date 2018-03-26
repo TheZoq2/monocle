@@ -63,7 +63,8 @@ app! {
     tasks: {
         EXTI9_5: {
             path: on_pin1,
-            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI]
+            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI],
+            priority: 2,
         }
     },
 }
@@ -137,12 +138,12 @@ fn idle(_t: &mut Threshold, mut r: idle::Resources) -> ! {
 }
 
 fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
-    // Read the time
-    let time = r.START_TIME.elapsed();
     // Reset interrupt flag
     r.EXTI.pr.modify(|_r, w| w.pr8().set_bit());
+    // Read the time
+    let time = r.START_TIME.elapsed();
 
     let reading = Reading::new(time, r.PIN1.is_high(), true);
     // TODO: Error handling
-    r.PRODUCER.enqueue(reading);
+    r.PRODUCER.enqueue(reading).unwrap();
 }
