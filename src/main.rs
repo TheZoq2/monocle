@@ -27,7 +27,7 @@ use stm32f103xx_hal::prelude::*;
 use stm32f103xx_hal::time;
 use stm32f103xx_hal::timer;
 use stm32f103xx_hal::serial;
-use stm32f103xx_hal::gpio::{self, gpioa};
+use stm32f103xx_hal::gpio::{self, gpioa, gpioc};
 use embedded_hal_time::{Millisecond, RealCountDown};
 use stm32f103xx::USART1;
 use stm32f103xx::TIM2 as HwTIM2;
@@ -53,6 +53,7 @@ app! {
         static COUNTDOWN: timer::Timer<HwTIM2>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
         static EXTI: EXTI;
+        static OUTPUT_PIN: gpioc::PC13<gpio::Output<gpio::PushPull>>;
     },
 
     idle: {
@@ -63,7 +64,7 @@ app! {
     tasks: {
         EXTI9_5: {
             path: on_pin1,
-            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI],
+            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI, OUTPUT_PIN],
             priority: 2,
         }
     },
@@ -74,6 +75,7 @@ fn init(p: init::Peripherals) -> init::LateResources {
     let mut flash = p.device.FLASH.constrain();
     let mut gpioa = p.device.GPIOA.split(&mut rcc.apb2);
     let mut gpiob = p.device.GPIOB.split(&mut rcc.apb2);
+    let mut gpioc = p.device.GPIOC.split(&mut rcc.apb2);
     let mut afio = p.device.AFIO.constrain(&mut rcc.apb2);
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
@@ -109,6 +111,9 @@ fn init(p: init::Peripherals) -> init::LateResources {
 
     let (producer, consumer) = unsafe{_RB.split()};
 
+    let mut output_pin = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    output_pin.set_high();
+
     init::LateResources {
         CONSUMER: consumer,
         PRODUCER: producer,
@@ -116,7 +121,8 @@ fn init(p: init::Peripherals) -> init::LateResources {
         TX: tx,
         COUNTDOWN: countdown,
         PIN1: pin1,
-        EXTI: p.device.EXTI
+        EXTI: p.device.EXTI,
+        OUTPUT_PIN: output_pin
     }
 }
 
@@ -141,9 +147,15 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
     // Reset interrupt flag
     r.EXTI.pr.modify(|_r, w| w.pr8().set_bit());
     // Read the time
-    let time = r.START_TIME.elapsed();
+    // let time = r.START_TIME.elapsed();
 
-    let reading = Reading::new(time, r.PIN1.is_high(), true);
+    // let reading = Reading::new(time, r.PIN1.is_high(), true);
     // TODO: Error handling
-    r.PRODUCER.enqueue(reading).unwrap();
+    // r.PRODUCER.enqueue(reading).unwrap();
+    if r.PIN1.is_high() {
+        r.OUTPUT_PIN.set_high();
+    }
+    else {
+        r.OUTPUT_PIN.set_low();
+    }
 }
