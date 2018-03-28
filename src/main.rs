@@ -57,14 +57,14 @@ app! {
     },
 
     idle: {
-        resources: [CONSUMER, TX]
+        resources: [CONSUMER, TX, OUTPUT_PIN]
     },
 
     // Both SYS_TICK and TIM2 have access to the `COUNTER` data
     tasks: {
         EXTI9_5: {
             path: on_pin1,
-            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI, OUTPUT_PIN],
+            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI],
             priority: 2,
         }
     },
@@ -130,11 +130,13 @@ fn idle(_t: &mut Threshold, mut r: idle::Resources) -> ! {
     loop {
         match r.CONSUMER.dequeue() {
             Some(reading) => {
+                r.OUTPUT_PIN.set_low();
                 let mut buffer = [0; 10];
                 let read_amount = serialize(&mut buffer, &reading).unwrap();
                 for byte in buffer[..read_amount].iter() {
                     block!(r.TX.write(*byte)).unwrap()
                 }
+                r.OUTPUT_PIN.set_high();
             }
             None => {
                 rtfm::wfi();
@@ -147,15 +149,17 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
     // Reset interrupt flag
     r.EXTI.pr.modify(|_r, w| w.pr8().set_bit());
     // Read the time
-    // let time = r.START_TIME.elapsed();
+    let time = r.START_TIME.elapsed();
 
-    // let reading = Reading::new(time, r.PIN1.is_high(), true);
+    let reading = Reading::new(time, r.PIN1.is_high(), true);
     // TODO: Error handling
-    // r.PRODUCER.enqueue(reading).unwrap();
+    r.PRODUCER.enqueue(reading).unwrap();
+    /*
     if r.PIN1.is_high() {
         r.OUTPUT_PIN.set_high();
     }
     else {
         r.OUTPUT_PIN.set_low();
     }
+    */
 }
