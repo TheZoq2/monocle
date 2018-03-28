@@ -6,41 +6,53 @@ use api::data;
 use ssmarshal::deserialize;
 
 use std::{env, io};
-use std::time::Duration;
 
 use std::io::prelude::*;
 use serial::prelude::*;
 
 fn main() {
     for arg in env::args_os().skip(1) {
-        let mut port = serial::open(&arg).unwrap();
+        let mut port = init_serial_port(&arg).unwrap();
+        let mut data_buffer: Vec<u8> = vec!();
+
         loop {
-            run_host(&mut port).unwrap().map(|val| {
-                println!("{:?}", val);
-            });
+            read_serial_port_data(&mut port, &mut data_buffer).unwrap();
+            println!("{}", data_buffer.len());
         }
     }
 }
 
-fn run_host<T: SerialPort>(port: &mut T) -> io::Result<Option<api::data::Reading>> {
-    port.reconfigure(&|settings| {
-        settings.set_baud_rate(serial::Baud115200)?;
-        Ok(())
-    })?;
+fn init_serial_port(name: &::std::ffi::OsString) -> io::Result<serial::SystemPort> {
+        let mut port = serial::open(&name).unwrap();
+        port.reconfigure(&|settings| {
+            settings.set_baud_rate(serial::Baud115200)?;
+            Ok(())
+        })?;
 
-    port.set_timeout(Duration::from_millis(2000))?;
-    let mut buf = [0;10];
+        Ok(port)
+}
 
-    let read_amount = match port.read(&mut buf) {
-        Ok(val) => val,
-        Err(e) => {
-            match e.kind() {
-                ::std::io::ErrorKind::TimedOut => return Ok(None),
-                _ => return Err(e)
+fn read_serial_port_data<T: SerialPort>(port: &mut T, buf: &mut Vec<u8>) -> io::Result<()> {
+    let mut internal_buf = [0; 100];
+    let read_amount = loop {
+        match port.read(&mut internal_buf) {
+            Ok(val) => break val,
+            Err(e) => {
+                match e.kind() {
+                    ::std::io::ErrorKind::TimedOut => continue,
+                    _ => return Err(e)
+                }
             }
-        }
+        };
     };
 
-    // TODO: Proper error handling
-    Ok(Some(deserialize::<data::Reading>(&buf[..read_amount]).unwrap().0))
+    for b in internal_buf[..read_amount].iter() {
+        buf.push(*b);
+    }
+
+    Ok(())
+}
+
+fn decode_readings(data: &mut Vec<u8>) -> Result<(), something> {
+    
 }
