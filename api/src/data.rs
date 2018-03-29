@@ -40,4 +40,8 @@ impl Reading {
     }
 }
 
-
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ClientHostMessage {
+    Reading(Reading),
+    FrequencyHertz(u32),
+}

@@ -25,3 +25,6 @@ openocd:
 
 doc:
 	xargo doc --target ${TARGET_NAME}
+
+expand:
+	xargo expand --target ${TARGET_NAME}

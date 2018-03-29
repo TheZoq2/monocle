@@ -6,8 +6,8 @@ use api::data;
 use ssmarshal::deserialize;
 
 use std::{env, io};
+use std::io::Write;
 
-use std::io::prelude::*;
 use serial::prelude::*;
 
 fn main() {
@@ -15,9 +15,14 @@ fn main() {
         let mut port = init_serial_port(&arg).unwrap();
         let mut data_buffer: Vec<u8> = vec!();
 
+        port.write(&[0]).unwrap();
+
         loop {
             read_serial_port_data(&mut port, &mut data_buffer).unwrap();
-            println!("{}", data_buffer.len());
+            let decoded = decode_messages(&mut data_buffer).unwrap();
+            for reading in decoded {
+                println!("{:?}", reading);
+            }
         }
     }
 }
@@ -53,6 +58,24 @@ fn read_serial_port_data<T: SerialPort>(port: &mut T, buf: &mut Vec<u8>) -> io::
     Ok(())
 }
 
-fn decode_readings(data: &mut Vec<u8>) -> Result<(), something> {
-    
+fn decode_messages(data: &mut Vec<u8>)
+    -> Result<Vec<data::ClientHostMessage>, ssmarshal::Error> 
+{
+    let mut result = vec!();
+    loop {
+        match deserialize::<data::ClientHostMessage>(data) {
+            Ok((reading, bytes_used)) => {
+                result.push(reading);
+                data.drain(0..bytes_used).collect::<Vec<_>>();
+            },
+            Err(ssmarshal::Error::EndOfStream) => {
+                break;
+            }
+            Err(e) => {
+                return Err(e)
+            }
+        }
+    }
+
+    Ok(result)
 }

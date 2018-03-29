@@ -17,7 +17,7 @@ extern crate arrayvec;
 extern crate api;
 
 use heapless::ring_buffer::{RingBuffer, Consumer, Producer};
-use api::data::Reading;
+use api::data::{Reading, ClientHostMessage};
 
 use ssmarshal::serialize;
 
@@ -29,11 +29,11 @@ use stm32f103xx_hal::timer;
 use stm32f103xx_hal::serial;
 use stm32f103xx_hal::gpio::{self, gpioa, gpioc};
 use embedded_hal_time::{Millisecond, RealCountDown};
-use stm32f103xx::USART1;
+use stm32f103xx::USART1 as HwUSART1;
 use stm32f103xx::TIM2 as HwTIM2;
 use stm32f103xx::EXTI;
 
-use rtfm::{app, Threshold};
+use rtfm::{app, Threshold, Resource};
 
 const BUFFER_SIZE: usize = 200;
 
@@ -49,11 +49,13 @@ app! {
         static CONSUMER: Consumer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static PRODUCER: Producer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static START_TIME: time::Instant;
-        static TX: serial::Tx<USART1>;
+        static TX: serial::Tx<HwUSART1>;
+        static RX: serial::Rx<HwUSART1>;
         static COUNTDOWN: timer::Timer<HwTIM2>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
         static EXTI: EXTI;
         static OUTPUT_PIN: gpioc::PC13<gpio::Output<gpio::PushPull>>;
+        static FREQUENCY: time::Hertz;
     },
 
     idle: {
@@ -66,6 +68,11 @@ app! {
             path: on_pin1,
             resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI],
             priority: 2,
+        },
+        USART1: {
+            path: on_rx,
+            resources: [RX, TX, FREQUENCY],
+            priority: 1
         }
     },
 }
@@ -86,7 +93,7 @@ fn init(p: init::Peripherals) -> init::LateResources {
 
     let tx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
     let rx = gpiob.pb7.into_floating_input(&mut gpiob.crl);
-    let serial = serial::Serial::usart1(
+    let mut serial = serial::Serial::usart1(
         p.device.USART1,
         (tx, rx),
         &mut afio.mapr,
@@ -94,7 +101,8 @@ fn init(p: init::Peripherals) -> init::LateResources {
         clocks,
         &mut rcc.apb2
     );
-    let (tx, _) = serial.split();
+    serial.listen(serial::Event::Rxne);
+    let (tx, rx) = serial.split();
 
     let timer = time::MonoTimer::new(p.core.DWT, clocks);
     let start_time = timer.now();
@@ -119,24 +127,31 @@ fn init(p: init::Peripherals) -> init::LateResources {
         PRODUCER: producer,
         START_TIME: start_time,
         TX: tx,
+        RX: rx,
         COUNTDOWN: countdown,
         PIN1: pin1,
         EXTI: p.device.EXTI,
-        OUTPUT_PIN: output_pin
+        OUTPUT_PIN: output_pin,
+        FREQUENCY: frequency
     }
 }
 
-fn idle(_t: &mut Threshold, mut r: idle::Resources) -> ! {
+fn idle(t: &mut Threshold, mut r: idle::Resources) -> ! {
     loop {
         match r.CONSUMER.dequeue() {
             Some(reading) => {
                 r.OUTPUT_PIN.set_low();
                 let mut buffer = [0; 10];
-                let read_amount = serialize(&mut buffer, &reading).unwrap();
-                for byte in buffer[..read_amount].iter() {
-                    block!(r.TX.write(*byte)).unwrap()
-                }
+                let message = ClientHostMessage::Reading(reading);
+                let byte_amount = serialize(&mut buffer, &message).unwrap();
                 r.OUTPUT_PIN.set_high();
+
+                //let mut tx = r.TX.lock_mut();
+                r.TX.claim_mut(t, |tx, _| {
+                    for byte in buffer[..byte_amount].iter() {
+                        block!(tx.write(*byte)).unwrap()
+                    }
+                })
             }
             None => {
                 rtfm::wfi();
@@ -154,12 +169,23 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
     let reading = Reading::new(time, r.PIN1.is_high(), true);
     // TODO: Error handling
     r.PRODUCER.enqueue(reading).unwrap();
-    /*
-    if r.PIN1.is_high() {
-        r.OUTPUT_PIN.set_high();
-    }
-    else {
-        r.OUTPUT_PIN.set_low();
-    }
-    */
+}
+
+
+fn on_rx(t: &mut Threshold, mut r: USART1::Resources) {
+    // Read byte to reset state
+    let received = r.RX.read().unwrap();
+
+    let mut buffer = [0; 10];
+    let mut byte_amount = serialize(
+        &mut buffer,
+        &ClientHostMessage::FrequencyHertz(r.FREQUENCY.0)
+    ).unwrap();
+
+    // Reply with the current frequency
+    r.TX.claim_mut(t, |tx, _| {
+        for byte in buffer[..byte_amount].iter() {
+            block!(tx.write(*byte)).unwrap()
+        }
+    })
 }
