@@ -53,6 +53,7 @@ app! {
         static RX: serial::Rx<HwUSART1>;
         static COUNTDOWN: timer::Timer<HwTIM2>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
+        static PIN2: gpioa::PA9<gpio::Input<gpio::Floating>>;
         static EXTI: EXTI;
         static OUTPUT_PIN: gpioc::PC13<gpio::Output<gpio::PushPull>>;
         static FREQUENCY: time::Hertz;
@@ -66,7 +67,7 @@ app! {
     tasks: {
         EXTI9_5: {
             path: on_pin1,
-            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, EXTI],
+            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, PIN2, EXTI],
             priority: 2,
         },
         USART1: {
@@ -111,11 +112,17 @@ fn init(p: init::Peripherals) -> init::LateResources {
 
     // Configure pin a8 as a floating input
     let pin1 = gpioa.pa8.into_floating_input(&mut gpioa.crh);
-    // Mask exti8
+    // Configure pin a9 as a floating input
+    let pin2 = gpioa.pa9.into_floating_input(&mut gpioa.crh);
+    // Mask exti8 and 9
     p.device.EXTI.imr.modify(|_r, w| w.mr8().set_bit());
+    p.device.EXTI.imr.modify(|_r, w| w.mr9().set_bit());
     // Trigger exti8 for both rising and falling edge
     p.device.EXTI.rtsr.modify(|_r, w| w.tr8().set_bit());
     p.device.EXTI.ftsr.modify(|_r, w| w.tr8().set_bit());
+    // Trigger exti9 for both rising and falling edge
+    p.device.EXTI.rtsr.modify(|_r, w| w.tr9().set_bit());
+    p.device.EXTI.ftsr.modify(|_r, w| w.tr9().set_bit());
 
     let (producer, consumer) = unsafe{_RB.split()};
 
@@ -130,6 +137,7 @@ fn init(p: init::Peripherals) -> init::LateResources {
         RX: rx,
         COUNTDOWN: countdown,
         PIN1: pin1,
+        PIN2: pin2,
         EXTI: p.device.EXTI,
         OUTPUT_PIN: output_pin,
         FREQUENCY: frequency
@@ -166,7 +174,7 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
     // Read the time
     let time = r.START_TIME.elapsed();
 
-    let reading = Reading::new(time, r.PIN1.is_high(), true);
+    let reading = Reading::new(time, r.PIN1.is_high(), r.PIN2.is_high());
     // TODO: Error handling
     r.PRODUCER.enqueue(reading).unwrap();
 }
@@ -188,4 +196,17 @@ fn on_rx(t: &mut Threshold, mut r: USART1::Resources) {
             block!(tx.write(*byte)).unwrap()
         }
     })
+}
+
+macro_rules! send_client_host_message {
+    ($message:expr, $byte_amount:expr, $tx:expr, $threshold:expr) => {
+        let mut buffer = [0; $byte_amount];
+        let byte_amount = serialize(&mut buffer, $message).unwrap();
+
+        $tx.claim_mut($threshold, |tx, _| {
+            for byte in buffer[..byte_amount].iter() {
+                block!(tx.write(*byte)).unwrap()
+            }
+        })
+    }
 }
