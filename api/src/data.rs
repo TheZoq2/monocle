@@ -44,4 +44,5 @@ impl Reading {
 pub enum ClientHostMessage {
     Reading(Reading),
     FrequencyHertz(u32),
+    Reset(u8) // Reset the specified channel readings
 }

@@ -35,6 +35,9 @@ use stm32f103xx::EXTI;
 
 use rtfm::{app, Threshold, Resource};
 
+#[macro_use]
+mod macros;
+
 const BUFFER_SIZE: usize = 200;
 
 // Transmission timeout
@@ -184,29 +187,23 @@ fn on_rx(t: &mut Threshold, mut r: USART1::Resources) {
     // Read byte to reset state
     let received = r.RX.read().unwrap();
 
-    let mut buffer = [0; 10];
-    let mut byte_amount = serialize(
-        &mut buffer,
-        &ClientHostMessage::FrequencyHertz(r.FREQUENCY.0)
-    ).unwrap();
-
-    // Reply with the current frequency
-    r.TX.claim_mut(t, |tx, _| {
-        for byte in buffer[..byte_amount].iter() {
-            block!(tx.write(*byte)).unwrap()
-        }
-    })
+    send_client_host_message!(
+        &ClientHostMessage::FrequencyHertz(r.FREQUENCY.0),
+        10,
+        r.TX,
+        t
+    );
+    send_client_host_message!(
+        &ClientHostMessage::Reset(1),
+        10,
+        r.TX,
+        t
+    );
+    send_client_host_message!(
+        &ClientHostMessage::Reset(2),
+        10,
+        r.TX,
+        t
+    );
 }
 
-macro_rules! send_client_host_message {
-    ($message:expr, $byte_amount:expr, $tx:expr, $threshold:expr) => {
-        let mut buffer = [0; $byte_amount];
-        let byte_amount = serialize(&mut buffer, $message).unwrap();
-
-        $tx.claim_mut($threshold, |tx, _| {
-            for byte in buffer[..byte_amount].iter() {
-                block!(tx.write(*byte)).unwrap()
-            }
-        })
-    }
-}
