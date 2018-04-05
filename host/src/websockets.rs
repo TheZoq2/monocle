@@ -1,4 +1,5 @@
 use websocket::sync::{Server, Client};
+use websocket::message::OwnedMessage;
 
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
@@ -24,6 +25,7 @@ pub fn server(address: &str, rx: Receiver<RealReading>) {
         println!("Got new client");
 
         clients.lock().unwrap().push(client);
+        println!("{}", clients.lock().unwrap().len());
     }
 }
 
@@ -32,13 +34,15 @@ fn client_handler(clients: Arc<Mutex<Vec<Client<TcpStream>>>>, rx: Receiver<Real
         let message = rx.recv()
             .expect("Failed to get reading from channel, did sender disconnect?");
 
-        let clients = clients.lock().unwrap();
-        for client in clients.iter() {
-            client.stream_ref().write(
+        let mut clients = clients.lock().unwrap();
+        for client in clients.iter_mut() {
+            let message = OwnedMessage::Text(
                 serde_json::to_string(&message)
                     .expect("Failed to encode message")
-                    .as_bytes()
-            ).expect("Failed to send message");
+            );
+
+            client.send_message(&message)
+                .map_err(|e| println!("Failed to send client {:?}", e));
         }
     }
 }
