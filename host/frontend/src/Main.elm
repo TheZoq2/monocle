@@ -4,14 +4,12 @@ import WebSocket
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Json.Decode
+
+import Types exposing (Reading, readingDecoder)
 
 url : String
 url = "ws://localhost:8765"
-
-type alias Reading =
-    { time: Int
-    , value: Int
-    }
 
 
 
@@ -53,8 +51,16 @@ update msg model =
         NewMessage message ->
             let
                 _ = Debug.log "message" message
+                decoded = Json.Decode.decodeString readingDecoder message
             in
-                (model, Cmd.none)
+                case decoded of
+                    Ok reading ->
+                        ({model | readings = model.readings ++ [reading]}, Cmd.none)
+                    Err e ->
+                        let
+                            _ = Debug.log "Error decoding message: " e
+                        in
+                        (model, Cmd.none)
 
 
 
@@ -69,7 +75,10 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    button [onClick Send] [text "send thing"]
+    div []
+        [ button [onClick Send] [text "send thing"]
+        , p [] [text <| toString (List.length model.readings) ]
+        ]
 
 
 
