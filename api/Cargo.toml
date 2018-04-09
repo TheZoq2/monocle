@@ -4,6 +4,3 @@ version = "0.1.0"
 authors = ["TheZoq2 <frans.skarman@gmail.com>"]
 
 [dependencies]
-serde = {version = "1.0.34", default-features = false}
-serde_derive = {version = "1.0.34", default-features = false}
-ssmarshal = {version = "1.0.0", default-features = false}

@@ -1,5 +1,5 @@
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct State {
     data: u8
 }
@@ -19,7 +19,7 @@ impl State {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Reading {
     pub state: State,
     pub time: u32
@@ -34,7 +34,7 @@ impl Reading {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ClientHostMessage {
     Reading(Reading),
     FrequencyHertz(u32),
