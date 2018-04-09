@@ -10,16 +10,15 @@ extern crate stm32f103xx_hal;
 extern crate embedded_hal;
 extern crate embedded_hal_time;
 extern crate heapless;
-extern crate ssmarshal;
 
 extern crate arrayvec;
 
 extern crate api;
 
+use api::Message;
+
 use heapless::ring_buffer::{RingBuffer, Consumer, Producer};
 use api::data::{Reading, ClientHostMessage};
-
-use ssmarshal::serialize;
 
 
 // use stm32f103xx_hal::flash::FlashExt;
@@ -154,7 +153,7 @@ fn idle(t: &mut Threshold, mut r: idle::Resources) -> ! {
                 r.OUTPUT_PIN.set_low();
                 let mut buffer = [0; 10];
                 let message = ClientHostMessage::Reading(reading);
-                let byte_amount = serialize(&mut buffer, &message).unwrap();
+                let byte_amount = message.encode(&mut buffer).unwrap();
                 r.OUTPUT_PIN.set_high();
 
                 //let mut tx = r.TX.lock_mut();

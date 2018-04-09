@@ -1,6 +1,6 @@
 extern crate serial;
-extern crate ssmarshal;
 extern crate websocket;
+extern crate api;
 
 #[macro_use]
 extern crate serde_derive;
@@ -13,11 +13,10 @@ use std::thread;
 mod types;
 mod serial_reader;
 mod websockets;
-mod data;
 
 use types::RealReading;
 
-use data::{ClientHostMessage};
+use api::data::{ClientHostMessage};
 
 fn processing_thread(
     message_receiver: Receiver<ClientHostMessage>,

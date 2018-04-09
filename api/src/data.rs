@@ -71,7 +71,7 @@ macro_rules! decode_enum_variants {
     }
 }
 
-trait Message<S> {
+pub trait Message<S> {
     fn encode(&self, buffer: &mut [u8]) -> Result<usize, EncodingError>;
     fn decode(bytes: &[u8]) -> Result<(usize, S), DecodingError>;
 }

@@ -6,10 +6,8 @@ use serial::prelude::*;
 use std::sync::mpsc::Sender;
 use std::io::Write;
 
-use ssmarshal::deserialize;
-use ssmarshal;
-
-use data;
+use api::data;
+use api::Message;
 
 pub fn serial_reader_thread(reading_sender: Sender<data::ClientHostMessage>) {
     let port_name = env::args_os().skip(1).next()
@@ -63,16 +61,16 @@ fn read_serial_port_data<T: SerialPort>(port: &mut T, buf: &mut Vec<u8>) -> io::
 }
 
 fn decode_messages(data: &mut Vec<u8>)
-    -> Result<Vec<data::ClientHostMessage>, ssmarshal::Error> 
+    -> Result<Vec<data::ClientHostMessage>, data::DecodingError>
 {
     let mut result = vec!();
     loop {
-        match deserialize::<data::ClientHostMessage>(data) {
-            Ok((reading, bytes_used)) => {
+        match data::ClientHostMessage::decode(data) {
+            Ok((bytes_used, reading)) => {
                 result.push(reading);
                 data.drain(0..bytes_used).collect::<Vec<_>>();
             },
-            Err(ssmarshal::Error::EndOfStream) => {
+            Err(data::DecodingError::EndOfBytes) => {
                 break;
             }
             Err(e) => {
