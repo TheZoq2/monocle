@@ -60,7 +60,7 @@ update msg model =
                         let
                             _ = Debug.log "Error decoding message: " e
                         in
-                        (model, Cmd.none)
+                            (model, Cmd.none)
 
 
 
