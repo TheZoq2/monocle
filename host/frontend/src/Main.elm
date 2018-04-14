@@ -130,10 +130,24 @@ view model =
               , Graph.drawGraph (viewWidth, viewHeight) (0,1)
                 <| List.map (\(time, val) -> if val then (time, 1) else (time, 0)) readingList
               ]
+
+        currTriggerModeSymbol = case model.triggerMode of
+            Continuous -> "→"
+            FallingEdge -> "⤵"
+            RisingEdge -> "⤴"
+
+        buttonRow = div []
+            [ label [] [text ("Trigger mode (" ++ currTriggerModeSymbol ++ "):")]
+            , button [onClick (TriggerModeSet Continuous)] [text "→"]
+            , button [onClick (TriggerModeSet FallingEdge)] [text "⤵"]
+            , button [onClick (TriggerModeSet RisingEdge)] [text "⤴"]
+            ]
+
+        timeSpanSelection = div [] [label [] [text "Time range"], input [] []]
     in
         div []
-            <|  [ button [onClick Send] [text "send thing"]
-                , p [] [text <| toString (List.length model.readings) ]
+            <|  [ buttonRow
+                , timeSpanSelection
                 ]
                 ++
                 (List.map graphFunction readings)
