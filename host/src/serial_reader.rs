@@ -30,13 +30,13 @@ pub fn serial_reader_thread(reading_sender: Sender<data::ClientHostMessage>) {
 }
 
 fn init_serial_port(name: &::std::ffi::OsString) -> io::Result<serial::SystemPort> {
-        let mut port = serial::open(&name).unwrap();
-        port.reconfigure(&|settings| {
-            settings.set_baud_rate(serial::Baud115200)?;
-            Ok(())
-        })?;
+    let mut port = serial::open(&name).unwrap();
+    port.reconfigure(&|settings| {
+        settings.set_baud_rate(serial::Baud115200)?;
+        Ok(())
+    })?;
 
-        Ok(port)
+    Ok(port)
 }
 
 fn read_serial_port_data<T: SerialPort>(port: &mut T, buf: &mut Vec<u8>) -> io::Result<()> {
@@ -72,6 +72,10 @@ fn decode_messages(data: &mut Vec<u8>)
             },
             Err(data::DecodingError::EndOfBytes) => {
                 break;
+            }
+            Err(data::DecodingError::UnexpectedByte(val, msg)) => {
+                println!("Failed to decode message: Dropping one byte. Got: {:?}, reason: {:?}", val, msg);
+                data.remove(0);
             }
             Err(e) => {
                 return Err(e)
