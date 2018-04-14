@@ -38,7 +38,8 @@ impl Reading {
 pub enum ClientHostMessage {
     Reading(Reading),
     FrequencyHertz(u32),
-    Reset(u8) // Reset the specified channel readings
+    Reset(u8), // Reset the specified channel readings
+    CurrentTime(u32),
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -127,6 +128,7 @@ impl Message<Self> for ClientHostMessage {
             ClientHostMessage::Reading(_) => 1,
             ClientHostMessage::FrequencyHertz(_) => 2,
             ClientHostMessage::Reset(_) => 3,
+            ClientHostMessage::CurrentTime(_) => 4,
         };
 
         let remainder = &mut buff[1..];
@@ -135,6 +137,7 @@ impl Message<Self> for ClientHostMessage {
             ClientHostMessage::Reading(ref val) => val.encode(remainder)?,
             ClientHostMessage::FrequencyHertz(ref val) => val.encode(remainder)?,
             ClientHostMessage::Reset(ref val) => val.encode(remainder)?,
+            ClientHostMessage::CurrentTime(ref val) => val.encode(remainder)?,
         };
 
         Ok(used_bytes + 1)
@@ -148,7 +151,8 @@ impl Message<Self> for ClientHostMessage {
         let (len, val) = decode_enum_variants!{bytes[0], &bytes[1..], ClientHostMessage {
             1 => (Reading, Reading),
             2 => (FrequencyHertz, u32),
-            3 => (Reset, u8)
+            3 => (Reset, u8),
+            4 => (CurrentTime, u32)
         }}?;
 
         Ok((len + 1, val))
@@ -280,6 +284,11 @@ mod encode_decode_tests {
         assert_eq!(test_encode_decode!(
             ClientHostMessage,
             ClientHostMessage::Reset(5),
+            6
+        ), Ok(()));
+        assert_eq!(test_encode_decode!(
+            ClientHostMessage,
+            ClientHostMessage::CurrentTime(5),
             6
         ), Ok(()));
     }

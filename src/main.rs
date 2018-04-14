@@ -29,8 +29,8 @@ use stm32f103xx_hal::serial;
 use stm32f103xx_hal::gpio::{self, gpioa, gpioc};
 use embedded_hal_time::{Millisecond, RealCountDown};
 use stm32f103xx::USART1 as HwUSART1;
-use stm32f103xx::TIM2 as HwTIM2;
 use stm32f103xx::EXTI;
+use stm32f103xx::TIM2 as HwTIM2;
 
 use rtfm::{app, Threshold, Resource};
 
@@ -40,7 +40,7 @@ mod macros;
 const BUFFER_SIZE: usize = 200;
 
 // Transmission timeout
-const TIMEOUT: Millisecond = Millisecond(500);
+const CURRENT_TIME_SEND_RATE: Millisecond = Millisecond(10);
 
 static mut _RB: RingBuffer<Reading, [Reading; BUFFER_SIZE]> = RingBuffer::new();
 
@@ -53,29 +53,33 @@ app! {
         static START_TIME: time::Instant;
         static TX: serial::Tx<HwUSART1>;
         static RX: serial::Rx<HwUSART1>;
-        static COUNTDOWN: timer::Timer<HwTIM2>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
         static PIN2: gpioa::PA9<gpio::Input<gpio::Floating>>;
         static EXTI: EXTI;
         static OUTPUT_PIN: gpioc::PC13<gpio::Output<gpio::PushPull>>;
         static FREQUENCY: time::Hertz;
+        static TIMER2: timer::Timer<HwTIM2>;
     },
 
     idle: {
         resources: [CONSUMER, TX, OUTPUT_PIN]
     },
 
-    // Both SYS_TICK and TIM2 have access to the `COUNTER` data
     tasks: {
         EXTI9_5: {
             path: on_pin1,
-            resources: [PRODUCER, START_TIME, COUNTDOWN, PIN1, PIN2, EXTI],
-            priority: 2,
+            resources: [PRODUCER, START_TIME, PIN1, PIN2, EXTI],
+            priority: 3,
         },
         USART1: {
             path: on_rx,
             resources: [RX, TX, FREQUENCY],
-            priority: 1
+            priority: 2
+        },
+        TIM2: {
+            path: on_timer,
+            resources: [TX, START_TIME, TIMER2],
+            priority: 1,
         }
     },
 }
@@ -89,10 +93,10 @@ fn init(p: init::Peripherals) -> init::LateResources {
     let mut afio = p.device.AFIO.constrain(&mut rcc.apb2);
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut countdown = timer::Timer::tim2(p.device.TIM2, time::Hertz(1), clocks, &mut rcc.apb1);
-    countdown.listen(timer::Event::Update);
-    // Pause the countdown and only resume it once bytes are received
-    countdown.start_real(TIMEOUT);
+    // Setup the timer to send regular updates about the current time
+    let mut timer2 = timer::Timer::tim2(p.device.TIM2, time::Hertz(1), clocks, &mut rcc.apb1);
+    timer2.listen(timer::Event::Update);
+    timer2.start_real(CURRENT_TIME_SEND_RATE);
 
     let tx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
     let rx = gpiob.pb7.into_floating_input(&mut gpiob.crl);
@@ -137,12 +141,12 @@ fn init(p: init::Peripherals) -> init::LateResources {
         START_TIME: start_time,
         TX: tx,
         RX: rx,
-        COUNTDOWN: countdown,
         PIN1: pin1,
         PIN2: pin2,
         EXTI: p.device.EXTI,
         OUTPUT_PIN: output_pin,
-        FREQUENCY: frequency
+        FREQUENCY: frequency,
+        TIMER2: timer2
     }
 }
 
@@ -206,3 +210,15 @@ fn on_rx(t: &mut Threshold, mut r: USART1::Resources) {
     );
 }
 
+
+fn on_timer(t: &mut Threshold, mut r: TIM2::Resources) {
+    // Reset the counter
+    r.TIMER2.wait();
+    let time = r.START_TIME.claim(t, |start_time, _t| start_time.elapsed());
+    send_client_host_message!(
+        &ClientHostMessage::CurrentTime(time),
+        10,
+        r.TX,
+        t
+    );
+}

@@ -14,17 +14,17 @@ mod types;
 mod serial_reader;
 mod websockets;
 
-use types::RealReading;
+use types::{RealReading, WebMessage, time_to_microseconds};
 
 use api::data::{ClientHostMessage};
 
 fn processing_thread(
-    message_receiver: Receiver<ClientHostMessage>,
-    reading_sender: Sender<RealReading>
+    hw_message_receiver: Receiver<ClientHostMessage>,
+    web_message_sender: Sender<WebMessage>
 ) {
     let mut frequency = None;
     loop {
-        let received = message_receiver.recv()
+        let received = hw_message_receiver.recv()
             .expect("sender disconnected");
 
         match received {
@@ -33,11 +33,23 @@ fn processing_thread(
             },
             ClientHostMessage::Reading(val) => {
                 if let Some(frequency) = frequency {
-                    reading_sender.send(RealReading::from_reading(frequency, val)).unwrap();
+                    let message =
+                        WebMessage::Reading(RealReading::from_reading(frequency, val));
+
+                    web_message_sender.send(message).unwrap();
                 }
             },
             ClientHostMessage::Reset(_) => {
                 println!("Reset operation is not currently handled");
+            },
+            ClientHostMessage::CurrentTime(time_u32) => {
+                if let Some(frequency) = frequency {
+                    let message = WebMessage::CurrentTime(time_to_microseconds(
+                        frequency,
+                        time_u32
+                    ));
+                    web_message_sender.send(message).unwrap();
+                }
             }
         }
     }

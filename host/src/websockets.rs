@@ -9,9 +9,9 @@ use std::io::Write;
 
 use serde_json;
 
-use types::RealReading;
+use types::WebMessage;
 
-pub fn server(address: &str, rx: Receiver<RealReading>) {
+pub fn server(address: &str, rx: Receiver<WebMessage>) {
     let server = Server::bind(address).expect("Failed to start websocket server");
 
     let clients = Arc::new(Mutex::new(vec!()));
@@ -29,7 +29,7 @@ pub fn server(address: &str, rx: Receiver<RealReading>) {
     }
 }
 
-fn client_handler(clients: Arc<Mutex<Vec<Client<TcpStream>>>>, rx: Receiver<RealReading>) {
+fn client_handler(clients: Arc<Mutex<Vec<Client<TcpStream>>>>, rx: Receiver<WebMessage>) {
     loop {
         let message = rx.recv()
             .expect("Failed to get reading from channel, did sender disconnect?");

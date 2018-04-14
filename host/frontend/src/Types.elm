@@ -1,4 +1,4 @@
-module Types exposing (Reading, readingDecoder)
+module Types exposing (Message(..), Reading, messageDecoder, readingsToChannels)
 
 import Json.Decode as De
 import List.Extra
@@ -9,11 +9,25 @@ type alias Reading =
     }
 
 
+type Message
+    = CurrentTime Float
+    | NewReading Reading
+
+
 readingDecoder : De.Decoder Reading
 readingDecoder =
     De.map2 Reading
         (De.field "values" (De.list De.bool))
         (De.field "time" De.float)
+
+
+messageDecoder : De.Decoder Message
+messageDecoder =
+    let
+        reading = De.map (\a -> NewReading a) <| De.field "Reading" readingDecoder
+        currentTime = De.map (\a -> CurrentTime a) <| De.field "CurrentTime" De.float
+    in
+        De.oneOf [reading, currentTime]
 
 
 readingsToChannels : List Reading -> List (List (Float, Bool))
