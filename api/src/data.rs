@@ -1,3 +1,4 @@
+const MESSAGE_PREFIX: u8 = 0xfe;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct State {
@@ -84,7 +85,8 @@ pub enum EncodingError {
 #[derive(Debug, PartialEq)]
 pub enum DecodingError {
     EndOfBytes,
-    UnexpectedByte(u8, &'static str)
+    UnexpectedByte(u8, &'static str),
+    IncorrectPrefixByte(u8),
 }
 
 impl Message<Self> for State {
@@ -120,18 +122,20 @@ impl Message<Self> for Reading {
 
 impl Message<Self> for ClientHostMessage {
     fn encode(&self, buff: &mut [u8]) -> Result<usize, EncodingError> {
-        if buff.len() < 1 {
+        if buff.len() < 2 {
             return Err(EncodingError::BufferToSmall);
         }
 
-        buff[0] = match *self {
+        buff[0] = MESSAGE_PREFIX;
+
+        buff[1] = match *self {
             ClientHostMessage::Reading(_) => 1,
             ClientHostMessage::FrequencyHertz(_) => 2,
             ClientHostMessage::Reset(_) => 3,
             ClientHostMessage::CurrentTime(_) => 4,
         };
 
-        let remainder = &mut buff[1..];
+        let remainder = &mut buff[2..];
 
         let used_bytes = match *self {
             ClientHostMessage::Reading(ref val) => val.encode(remainder)?,
@@ -140,22 +144,26 @@ impl Message<Self> for ClientHostMessage {
             ClientHostMessage::CurrentTime(ref val) => val.encode(remainder)?,
         };
 
-        Ok(used_bytes + 1)
+        Ok(used_bytes + 2)
     }
 
     fn decode(bytes: &[u8]) -> Result<(usize, Self), DecodingError> {
-        if bytes.len() < 1 {
+        if bytes.len() < 2 {
             return Err(DecodingError::EndOfBytes);
         }
 
-        let (len, val) = decode_enum_variants!{bytes[0], &bytes[1..], ClientHostMessage {
+        if bytes[0] != MESSAGE_PREFIX {
+            return Err(DecodingError::IncorrectPrefixByte(bytes[0]));
+        }
+
+        let (len, val) = decode_enum_variants!{bytes[1], &bytes[2..], ClientHostMessage {
             1 => (Reading, Reading),
             2 => (FrequencyHertz, u32),
             3 => (Reset, u8),
             4 => (CurrentTime, u32)
         }}?;
 
-        Ok((len + 1, val))
+        Ok((len + 2, val))
     }
 }
 
@@ -227,7 +235,7 @@ mod encode_decode_tests {
                     let encoded_len = val.encode(&mut buffer)
                         .map_err(|e| EncodeDecodeFailure::EncodingError(e))?;
 
-                    let (decoded_len, decoded) = $type::decode(&buffer)
+                    let (decoded_len, decoded) = $type::decode(&buffer[..encoded_len])
                         .map_err(|e| EncodeDecodeFailure::DecodingError(e))?;
 
                     if decoded_len != encoded_len {
@@ -274,22 +282,33 @@ mod encode_decode_tests {
         assert_eq!(test_encode_decode!(
             ClientHostMessage,
             ClientHostMessage::Reading(reading.clone()),
-            6
+            7
         ), Ok(()));
         assert_eq!(test_encode_decode!(
             ClientHostMessage,
             ClientHostMessage::FrequencyHertz(12345),
-            6
+            7
         ), Ok(()));
         assert_eq!(test_encode_decode!(
             ClientHostMessage,
             ClientHostMessage::Reset(5),
-            6
+            7
         ), Ok(()));
         assert_eq!(test_encode_decode!(
             ClientHostMessage,
             ClientHostMessage::CurrentTime(5),
-            6
+            7
         ), Ok(()));
+    }
+
+    #[test]
+    fn incorrect_prefix_fails() {
+        let message = [0xfe, 4, 0, 0, 0, 0, 0xfe];
+        let correct = ClientHostMessage::decode(&message);
+        let incorrect = ClientHostMessage::decode(&message[1..]);
+
+        assert_eq!(correct, Ok((6, ClientHostMessage::CurrentTime(0))));
+
+        assert_eq!(incorrect, Err(DecodingError::IncorrectPrefixByte(4)));
     }
 }

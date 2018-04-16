@@ -32,7 +32,8 @@ pub fn serial_reader_thread(reading_sender: Sender<data::ClientHostMessage>) {
 fn init_serial_port(name: &::std::ffi::OsString) -> io::Result<serial::SystemPort> {
     let mut port = serial::open(&name).unwrap();
     port.reconfigure(&|settings| {
-        settings.set_baud_rate(serial::Baud115200)?;
+        //settings.set_baud_rate(serial::Baud115200)?;
+        settings.set_baud_rate(serial::Baud9600)?;
         Ok(())
     })?;
 
@@ -73,9 +74,9 @@ fn decode_messages(data: &mut Vec<u8>)
             Err(data::DecodingError::EndOfBytes) => {
                 break;
             }
-            Err(data::DecodingError::UnexpectedByte(val, msg)) => {
-                println!("Failed to decode message: Dropping one byte. Got: {:?}, reason: {:?}", val, msg);
-                data.remove(0);
+            Err(data::DecodingError::IncorrectPrefixByte(val)) => {
+                let dropped = data.remove(0);
+                println!("Got wrong prefix: {:x}, dropping byte", val);
             }
             Err(e) => {
                 return Err(e)

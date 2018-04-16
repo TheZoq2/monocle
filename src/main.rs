@@ -104,7 +104,7 @@ fn init(p: init::Peripherals) -> init::LateResources {
         p.device.USART1,
         (tx, rx),
         &mut afio.mapr,
-        115200.bps(),
+        9600.bps(),
         clocks,
         &mut rcc.apb2
     );
