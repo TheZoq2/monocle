@@ -33,7 +33,7 @@ fn init_serial_port(name: &::std::ffi::OsString) -> io::Result<serial::SystemPor
     let mut port = serial::open(&name).unwrap();
     port.reconfigure(&|settings| {
         //settings.set_baud_rate(serial::Baud115200)?;
-        settings.set_baud_rate(serial::Baud9600)?;
+        settings.set_baud_rate(serial::Baud115200)?;
         Ok(())
     })?;
 
@@ -55,6 +55,10 @@ fn read_serial_port_data<T: SerialPort>(port: &mut T, buf: &mut Vec<u8>) -> io::
     };
 
     for b in internal_buf[..read_amount].iter() {
+        if *b == 0xfe {
+            println!("");
+        }
+        print!("{:02x}", b);
         buf.push(*b);
     }
 

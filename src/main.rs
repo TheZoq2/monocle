@@ -104,7 +104,7 @@ fn init(p: init::Peripherals) -> init::LateResources {
         p.device.USART1,
         (tx, rx),
         &mut afio.mapr,
-        9600.bps(),
+        115200.bps(),
         clocks,
         &mut rcc.apb2
     );
@@ -215,6 +215,7 @@ fn on_timer(t: &mut Threshold, mut r: TIM2::Resources) {
     // Reset the counter
     r.TIMER2.wait();
     let time = r.START_TIME.claim(t, |start_time, _t| start_time.elapsed());
+    //let time = 0x1234567e;
     send_client_host_message!(
         &ClientHostMessage::CurrentTime(time),
         10,
