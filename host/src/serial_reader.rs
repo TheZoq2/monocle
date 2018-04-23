@@ -55,10 +55,6 @@ fn read_serial_port_data<T: SerialPort>(port: &mut T, buf: &mut Vec<u8>) -> io::
     };
 
     for b in internal_buf[..read_amount].iter() {
-        if *b == 0xfe {
-            println!("");
-        }
-        print!("{:02x}", b);
         buf.push(*b);
     }
 
