@@ -29,6 +29,7 @@ fn processing_thread(
 
         match received {
             ClientHostMessage::FrequencyHertz(val) => {
+                println!("Got frequency value: {}", val);
                 frequency = Some(val);
             },
             ClientHostMessage::Reading(val) => {

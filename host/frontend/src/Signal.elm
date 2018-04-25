@@ -1,5 +1,9 @@
-module Signal exposing (triggerFallingEdge)
+module Signal exposing (continuousRead, isFallingEdge, isRisingEdge, edgeTrigger)
 
+
+continuousRead : Bool -> Bool -> Bool
+continuousRead _ _ =
+    True
 
 isFallingEdge : Bool -> Bool -> Bool
 isFallingEdge old new =
@@ -14,25 +18,37 @@ isRisingEdge old new =
 -- 
 
 
-lastTrig : (Bool -> Bool -> Bool) -> List (Float, Bool) -> Maybe Float
-lastTrig trigfn reversedReadings =
+getLastTrig : (Bool -> Bool -> Bool) -> List (Float, Bool) -> Maybe Float
+getLastTrig trigfn reversedReadings =
     let
         inner : (Float, Bool) -> List (Float, Bool) -> Maybe Float
         inner (prevTime, prevVal) readings =
             case readings of
-                ((firstTime, firstVal), rest) ->
+                (firstTime, firstVal) :: rest ->
                     if trigfn firstVal prevVal then
                         Just prevTime
                     else
                         inner (firstTime, firstVal) rest
                 _ -> Nothing
     in
-        Maybe.map2 (\first rest -> inner first rest)
+        Maybe.withDefault Nothing
+            <| Maybe.map2
+                (\first rest -> inner first rest)
+                (List.head reversedReadings)
+                (List.tail reversedReadings)
 
-edgeTrigger : (Bool -> Bool) -> Float -> List (Float Bool) -> (Float, Float)
+edgeTrigger : (Bool -> Bool -> Bool) -> Float -> List (Float, Bool) -> (Float, Float)
 edgeTrigger trigFn valueRange readings =
     let
         reversedReadings = List.reverse readings
-    in
-        
 
+        maxTime = Maybe.withDefault valueRange
+            <| List.maximum
+            <| List.map Tuple.first readings
+
+        lastTrig = Maybe.withDefault maxTime
+            <| getLastTrig trigFn reversedReadings
+
+        end = min (lastTrig + valueRange/2) maxTime
+    in
+        (end - valueRange, end)

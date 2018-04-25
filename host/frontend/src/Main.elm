@@ -11,16 +11,21 @@ import List.Extra
 
 import Graph
 
-import Types exposing (Message(..), Reading, messageDecoder, readingsToChannels)
+import Types exposing
+    ( Message(..),
+    Reading,
+    messageDecoder,
+    readingsToChannels,
+    TriggerMode(..),
+    triggerModeSymbol,
+    allTriggerModes
+    )
+import Signal exposing (edgeTrigger, isRisingEdge, isFallingEdge, continuousRead)
+import TimeUnits exposing (Time, TimeUnit(..), timeUnitString, toMicroseconds, allTimeUnits)
+
 
 url : String
 url = "ws://localhost:8765"
-
-
-type TriggerMode
-    = Continuous
-    | FallingEdge
-    | RisingEdge
 
 
 
@@ -31,6 +36,8 @@ type alias Model =
     { readings: List Reading
     , currentReading: Reading
     , triggerMode: TriggerMode
+    , timeSpan: Time
+    , triggerChannel: Int
     }
 
 
@@ -38,7 +45,9 @@ init : (Model, Cmd Msg)
 init =
     ( { readings = []
       , currentReading = (Reading [] 0)
-      , triggerMode = Continuous
+      , triggerMode = FallingEdge
+      , timeSpan = Time Millisecond 1
+      , triggerChannel = 1
     }
     , Cmd.none
     )
@@ -53,6 +62,9 @@ type Msg
     = NewMessage String
     | Send
     | TriggerModeSet TriggerMode
+    | TimeSpanSet String
+    | TimeSpanUnitSet TimeUnit
+    | TriggerChannelSet Int
 
 
 
@@ -88,6 +100,20 @@ update msg model =
                             (model, Cmd.none)
         TriggerModeSet mode ->
             ({model | triggerMode = mode}, Cmd.none)
+        TimeSpanSet val ->
+            let
+                asFloat = Result.withDefault model.timeSpan.value <| String.toFloat val
+                oldSpan = model.timeSpan
+            in
+                ({model | timeSpan = { oldSpan | value = asFloat }}, Cmd.none)
+        TimeSpanUnitSet unit ->
+            let
+                oldSpan = model.timeSpan
+            in
+                ({model | timeSpan = { oldSpan | unit = unit }}, Cmd.none)
+        TriggerChannelSet index ->
+            ({model | triggerChannel = index}, Cmd.none)
+
 
 
 
@@ -109,6 +135,13 @@ stepPreprocessor original =
     in
         List.Extra.zip shiftedTimes values
 
+
+trigFunction : TriggerMode -> (Bool -> Bool -> Bool)
+trigFunction mode =
+    case mode of
+        Continuous -> continuousRead
+        RisingEdge -> isRisingEdge
+        FallingEdge -> isFallingEdge
 -- View
 
 view : Model -> Html Msg
@@ -116,6 +149,11 @@ view model =
     let
         readings = List.map stepPreprocessor 
             <| readingsToChannels (model.readings ++ [model.currentReading])
+
+        valueRange = edgeTrigger
+            (trigFunction model.triggerMode)
+            (toMicroseconds model.timeSpan)
+            (Maybe.withDefault [] <| List.Extra.getAt model.triggerChannel readings)
 
         (viewWidth, viewHeight) = (600, 50)
 
@@ -127,30 +165,68 @@ view model =
               , Svg.Attributes.height <| toString viewHeight ++ "px"
               ]
               [ Graph.drawHorizontalLines (viewWidth, viewHeight) (0,1) 1
-              , Graph.drawGraph (viewWidth, viewHeight) (0,1)
+              , Graph.drawGraph (viewWidth, viewHeight) (0,1) valueRange
                 <| List.map (\(time, val) -> if val then (time, 1) else (time, 0)) readingList
               ]
 
-        currTriggerModeSymbol = case model.triggerMode of
-            Continuous -> "→"
-            FallingEdge -> "⤵"
-            RisingEdge -> "⤴"
-
         buttonRow = div []
-            [ label [] [text ("Trigger mode (" ++ currTriggerModeSymbol ++ "):")]
-            , button [onClick (TriggerModeSet Continuous)] [text "→"]
-            , button [onClick (TriggerModeSet FallingEdge)] [text "⤵"]
-            , button [onClick (TriggerModeSet RisingEdge)] [text "⤴"]
+            ([ label [] [text ("Trigger mode: ")]
             ]
+            ++
+                ( singleChoiseSelector
+                    model.triggerMode
+                    allTriggerModes
+                    triggerModeSymbol
+                    TriggerModeSet
+                )
+            )
 
-        timeSpanSelection = div [] [label [] [text "Time range"], input [] []]
+        timeSpanSelection =
+            div
+                []
+                ([ label [] [text "Time range: "]
+                , input [onInput TimeSpanSet, placeholder (toString model.timeSpan.value)] []
+                ]
+                ++ timeUnitSelector model.timeSpan.unit TimeSpanUnitSet
+                )
+
+        triggerChannelSelector =
+            div []
+                ( [label [] [text "TriggerChannel: "]]
+                ++ ( singleChoiseSelector
+                    model.triggerChannel
+                    (List.range 0 <| (List.length readings) - 1)
+                    toString
+                    TriggerChannelSet
+                  )
+                )
     in
         div []
             <|  [ buttonRow
+                , triggerChannelSelector
                 , timeSpanSelection
                 ]
                 ++
                 (List.map graphFunction readings)
+
+timeUnitSelector : TimeUnit -> (TimeUnit -> Msg) -> List (Html Msg)
+timeUnitSelector currentUnit msg =
+    singleChoiseSelector currentUnit allTimeUnits timeUnitString msg
+
+
+singleChoiseSelector : a -> List a -> (a -> String) -> (a -> Msg) -> List (Html Msg)
+singleChoiseSelector current choises nameFunction msg =
+    List.map
+        (\alternative ->
+            button [onClick (msg alternative)] 
+                [(if alternative == current then
+                    b []
+                else 
+                    span []
+                ) [text <| nameFunction alternative]
+                ]
+        )
+        choises
 
 
 

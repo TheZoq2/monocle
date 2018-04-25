@@ -1,4 +1,12 @@
-module Types exposing (Message(..), Reading, messageDecoder, readingsToChannels)
+module Types exposing
+    ( Message(..)
+    , Reading
+    , messageDecoder
+    , readingsToChannels
+    , TriggerMode(..)
+    , triggerModeSymbol
+    , allTriggerModes
+    )
 
 import Json.Decode as De
 import List.Extra
@@ -40,4 +48,25 @@ readingsToChannels readings =
             |> List.map (List.Extra.zip timeList)
 
 
+
+type TriggerMode
+    = Continuous
+    | FallingEdge
+    | RisingEdge
+
+
+triggerModeSymbol : TriggerMode -> String
+triggerModeSymbol mode =
+    case mode of
+        Continuous -> "→"
+        FallingEdge -> "↓"
+        RisingEdge -> "↑"
+
+
+allTriggerModes : List TriggerMode
+allTriggerModes =
+    [ Continuous
+    , FallingEdge
+    , RisingEdge
+    ]
 
