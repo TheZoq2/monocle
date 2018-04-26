@@ -13,10 +13,10 @@ debug:
 	make gdb
 
 rb:
-	xargo build --release --target ${TARGET_NAME}
+	cargo build --release --target ${TARGET_NAME}
 
 build:
-	xargo build --target ${TARGET_NAME}
+	cargo build --target ${TARGET_NAME}
 
 gdb:
 	arm-none-eabi-gdb target/${TARGET_NAME}/debug/${PROJECT_NAME}
@@ -28,7 +28,7 @@ openocd:
 	openocd -f bluepill.cfg
 
 doc:
-	xargo doc --target ${TARGET_NAME}
+	cargo doc --target ${TARGET_NAME}
 
 expand:
-	xargo expand --target ${TARGET_NAME}
+	cargo expand --target ${TARGET_NAME}
