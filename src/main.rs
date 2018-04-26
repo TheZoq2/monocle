@@ -36,6 +36,7 @@ use rtfm::{app, Threshold, Resource};
 
 #[macro_use]
 mod macros;
+mod stopwatch;
 
 const BUFFER_SIZE: usize = 200;
 
