@@ -29,7 +29,7 @@ use stm32f103xx_hal::mono_timer;
 use stm32f103xx_hal::serial;
 use stm32f103xx_hal::gpio::{self, gpioa, gpioc};
 use embedded_hal_time::{Millisecond, RealCountDown, Stopwatch};
-use stm32f103xx::USART1 as HwUSART1;
+use stm32f103xx::USART2 as HwUSART2;
 use stm32f103xx::EXTI;
 use stm32f103xx::TIM2 as HwTIM2;
 use stm32f103xx::TIM3 as HwTIM3;
@@ -40,6 +40,7 @@ use rtfm::{app, Threshold, Resource};
 
 #[macro_use]
 mod macros;
+mod channels;
 // mod stopwatch;
 
 const BUFFER_SIZE: usize = 200;
@@ -56,8 +57,8 @@ app! {
         static CONSUMER: Consumer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static PRODUCER: Producer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static MONO_TIMER: mono_timer::MonoTimer32bit<HwTIM3, HwTIM4>;
-        static TX: serial::Tx<HwUSART1>;
-        static RX: serial::Rx<HwUSART1>;
+        static TX: serial::Tx<HwUSART2>;
+        static RX: serial::Rx<HwUSART2>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
         static PIN2: gpioa::PA9<gpio::Input<gpio::Floating>>;
         static EXTI: EXTI;
@@ -76,9 +77,9 @@ app! {
             resources: [PRODUCER, MONO_TIMER, PIN1, PIN2, EXTI],
             priority: 3,
         },
-        USART1: {
+        USART2: {
             path: on_rx,
-            resources: [RX, TX, FREQUENCY],
+            resources: [EXTI, RX, TX, FREQUENCY],
             priority: 2
         },
         TIM2: {
@@ -103,15 +104,15 @@ fn init(p: init::Peripherals) -> init::LateResources {
     timer2.listen(timer::Event::Update);
     timer2.start_real(CURRENT_TIME_SEND_RATE);
 
-    let tx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
-    let rx = gpiob.pb7.into_floating_input(&mut gpiob.crl);
-    let mut serial = serial::Serial::usart1(
-        p.device.USART1,
+    let tx = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
+    let rx = gpioa.pa3.into_floating_input(&mut gpioa.crl);
+    let mut serial = serial::Serial::usart2(
+        p.device.USART2,
         (tx, rx),
         &mut afio.mapr,
         115200.bps(),
         clocks,
-        &mut rcc.apb2
+        &mut rcc.apb1
     );
     serial.listen(serial::Event::Rxne);
     let (tx, rx) = serial.split();
@@ -129,15 +130,9 @@ fn init(p: init::Peripherals) -> init::LateResources {
     let pin1 = gpioa.pa8.into_floating_input(&mut gpioa.crh);
     // Configure pin a9 as a floating input
     let pin2 = gpioa.pa9.into_floating_input(&mut gpioa.crh);
-    // Mask exti8 and 9
-    p.device.EXTI.imr.modify(|_r, w| w.mr8().set_bit());
-    p.device.EXTI.imr.modify(|_r, w| w.mr9().set_bit());
-    // Trigger exti8 for both rising and falling edge
-    p.device.EXTI.rtsr.modify(|_r, w| w.tr8().set_bit());
-    p.device.EXTI.ftsr.modify(|_r, w| w.tr8().set_bit());
-    // Trigger exti9 for both rising and falling edge
-    p.device.EXTI.rtsr.modify(|_r, w| w.tr9().set_bit());
-    p.device.EXTI.ftsr.modify(|_r, w| w.tr9().set_bit());
+
+    channels::enable_channel(&p.device.EXTI, 0).map_err(|_e| panic!());
+    channels::enable_channel(&p.device.EXTI, 1).map_err(|_e| panic!());
 
     let (producer, consumer) = unsafe{_RB.split()};
 
@@ -195,7 +190,7 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
 }
 
 
-fn on_rx(t: &mut Threshold, mut r: USART1::Resources) {
+fn on_rx(t: &mut Threshold, mut r: USART2::Resources) {
     // Read byte to reset state
     let received = r.RX.read().unwrap();
 
