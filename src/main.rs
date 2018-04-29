@@ -25,18 +25,22 @@ use api::data::{Reading, ClientHostMessage};
 use stm32f103xx_hal::prelude::*;
 use stm32f103xx_hal::time;
 use stm32f103xx_hal::timer;
+use stm32f103xx_hal::mono_timer;
 use stm32f103xx_hal::serial;
 use stm32f103xx_hal::gpio::{self, gpioa, gpioc};
-use embedded_hal_time::{Millisecond, RealCountDown};
+use embedded_hal_time::{Millisecond, RealCountDown, Stopwatch};
 use stm32f103xx::USART1 as HwUSART1;
 use stm32f103xx::EXTI;
 use stm32f103xx::TIM2 as HwTIM2;
+use stm32f103xx::TIM3 as HwTIM3;
+use stm32f103xx::TIM4 as HwTIM4;
+
 
 use rtfm::{app, Threshold, Resource};
 
 #[macro_use]
 mod macros;
-mod stopwatch;
+// mod stopwatch;
 
 const BUFFER_SIZE: usize = 200;
 
@@ -51,7 +55,7 @@ app! {
     resources: {
         static CONSUMER: Consumer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static PRODUCER: Producer<'static, Reading, [Reading; BUFFER_SIZE]>;
-        static START_TIME: time::Instant;
+        static MONO_TIMER: mono_timer::MonoTimer32bit<HwTIM3, HwTIM4>;
         static TX: serial::Tx<HwUSART1>;
         static RX: serial::Rx<HwUSART1>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
@@ -69,7 +73,7 @@ app! {
     tasks: {
         EXTI9_5: {
             path: on_pin1,
-            resources: [PRODUCER, START_TIME, PIN1, PIN2, EXTI],
+            resources: [PRODUCER, MONO_TIMER, PIN1, PIN2, EXTI],
             priority: 3,
         },
         USART1: {
@@ -79,7 +83,7 @@ app! {
         },
         TIM2: {
             path: on_timer,
-            resources: [TX, START_TIME, TIMER2],
+            resources: [TX, MONO_TIMER, TIMER2],
             priority: 1,
         }
     },
@@ -112,9 +116,13 @@ fn init(p: init::Peripherals) -> init::LateResources {
     serial.listen(serial::Event::Rxne);
     let (tx, rx) = serial.split();
 
-    let timer = time::MonoTimer::new(p.core.DWT, clocks);
-    let start_time = timer.now();
-    let frequency = timer.frequency();
+    let mono_timer = mono_timer::MonoTimer32bit::tim34(
+        p.device.TIM3,
+        p.device.TIM4,
+        clocks,
+        &mut rcc.apb1
+    );
+    let frequency = mono_timer.frequency();
 
 
     // Configure pin a8 as a floating input
@@ -139,7 +147,7 @@ fn init(p: init::Peripherals) -> init::LateResources {
     init::LateResources {
         CONSUMER: consumer,
         PRODUCER: producer,
-        START_TIME: start_time,
+        MONO_TIMER: mono_timer,
         TX: tx,
         RX: rx,
         PIN1: pin1,
@@ -179,7 +187,7 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
     // Reset interrupt flag
     r.EXTI.pr.modify(|_r, w| w.pr8().set_bit());
     // Read the time
-    let time = r.START_TIME.elapsed();
+    let time = r.MONO_TIMER.ticks_passed();
 
     let reading = Reading::new(time, r.PIN1.is_high(), r.PIN2.is_high());
     // TODO: Error handling
@@ -215,7 +223,7 @@ fn on_rx(t: &mut Threshold, mut r: USART1::Resources) {
 fn on_timer(t: &mut Threshold, mut r: TIM2::Resources) {
     // Reset the counter
     r.TIMER2.wait();
-    let time = r.START_TIME.claim(t, |start_time, _t| start_time.elapsed());
+    let time = r.MONO_TIMER.claim(t, |mono_timer, _t| mono_timer.ticks_passed());
     //let time = 0x1234567e;
     send_client_host_message!(
         &ClientHostMessage::CurrentTime(time),
