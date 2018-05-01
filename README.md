@@ -2,7 +2,7 @@
 
 A multi-channel digital signal analyser written in rust that runs on a [blue pill board](http://wiki.stm32duino.com/index.php?title=Blue_Pill).
 
-![Picture of prototype](prototype1.jpg "Current prototype")
+![Picture of prototype](prototype.jpg "Current prototype")
 
 It currently uses a separate chip for usb communication. Any device that can read serial
 data from a source and send it over USB should work.
