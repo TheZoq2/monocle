@@ -39,6 +39,8 @@ mode and upload it to the device.
 The host program is in `host/`. Run it using `cargo run` and specify the file
 for the serial reader (usually /dev/ttyACMx or /dev/ttyUSBx).
 
+Run `git submodule init && git submodule update` to pull the graph rendering library
+
 Finally, enter the `host/frontend` directory and run `elm-reactor`. Open `src/Main.elm`
 and it should connect to the host server and receive updates.
 
