@@ -6,6 +6,8 @@ extern crate api;
 extern crate serde_derive;
 extern crate serde_json;
 
+extern crate simple_server;
+
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
@@ -13,6 +15,7 @@ use std::thread;
 mod types;
 mod serial_reader;
 mod websockets;
+mod httpserver;
 
 use types::{RealReading, WebMessage, time_to_microseconds};
 
@@ -61,6 +64,7 @@ fn main() {
     let (reading_tx, reading_rx) = channel();
 
 
+    thread::spawn(httpserver::http_server);
     thread::spawn(|| processing_thread(message_rx, reading_tx));
     thread::spawn(|| websockets::server("0.0.0.0:8765", reading_rx));
 
