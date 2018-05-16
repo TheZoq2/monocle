@@ -10,7 +10,6 @@ extern crate stm32f103xx_hal;
 extern crate embedded_hal;
 extern crate embedded_hal_time;
 extern crate heapless;
-extern crate panic_semihosting;
 
 extern crate arrayvec;
 
