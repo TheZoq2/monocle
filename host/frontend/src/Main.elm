@@ -3,6 +3,7 @@ module Main exposing (..)
 -- Standard library imports
 import Html
 import WebSocket
+import Mouse
 
 -- Library imports
 import Json.Decode
@@ -12,17 +13,14 @@ import View exposing (view)
 import Model exposing (Model, init)
 import Msg exposing (Msg(..))
 
+-- Internal imports
 import Types exposing
-    ( Message(..),
-    Reading,
-    messageDecoder,
-    readingsToChannels,
-    TriggerMode(..),
-    triggerModeSymbol,
-    allTriggerModes
+    ( Message(..)
+    , messageDecoder
     )
 
 
+-- Url of the websocket server
 url : String
 url = "ws://localhost:8765"
 
@@ -69,6 +67,10 @@ update msg model =
             ({model | triggerChannel = index}, Cmd.none)
         ResetValues ->
             ({model | readings = []}, Cmd.none)
+        MouseGlobalMove position ->
+            (model, Cmd.none)
+        MouseGlobalUp position ->
+            ({model | mouseDragReceiver = Nothing}, Cmd.none)
 
 
 
@@ -77,10 +79,16 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    WebSocket.listen url NewMessage
+    Sub.batch <|
+        [ WebSocket.listen url NewMessage ]
+        ++
+        case model.mouseDragReceiver of
+            Just _ -> [Mouse.moves MouseGlobalMove, Mouse.ups MouseGlobalUp]
+            Nothing -> []
 
 
 
+main : Program Never Model Msg
 main =
     Html.program
         { init = init

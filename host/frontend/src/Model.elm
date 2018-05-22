@@ -4,6 +4,10 @@ import Types exposing (Reading, TriggerMode(..))
 import TimeUnits exposing (Time, TimeUnit(..))
 import Msg exposing (Msg)
 
+-- Helper types
+type MouseDragReceiver
+    = Graph
+
 -- Model and init
 
 type alias Model =
@@ -12,6 +16,7 @@ type alias Model =
     , triggerMode: TriggerMode
     , timeSpan: Time
     , triggerChannel: Int
+    , mouseDragReceiver: Maybe MouseDragReceiver
     }
 
 
@@ -22,6 +27,7 @@ init =
       , triggerMode = FallingEdge
       , timeSpan = Time Millisecond 1
       , triggerChannel = 1
+      , mouseDragReceiver = Nothing
     }
     , Cmd.none
     )
