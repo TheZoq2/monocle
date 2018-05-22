@@ -1,4 +1,9 @@
-module Signal exposing (continuousRead, isFallingEdge, isRisingEdge, edgeTrigger)
+module Signal exposing 
+    ( continuousRead
+    , isFallingEdge
+    , isRisingEdge
+    , edgeTrigger
+    )
 
 
 continuousRead : Bool -> Bool -> Bool
@@ -12,10 +17,6 @@ isFallingEdge old new =
 isRisingEdge : Bool -> Bool -> Bool
 isRisingEdge old new =
     old == False && new == True
-
--- triggerFallingEdge : Float -> List (Float Bool) -> List (Float Bool)
--- triggerFallingEdge displayRange data =
--- 
 
 
 getLastTrig : (Bool -> Bool -> Bool) -> List (Float, Bool) -> Maybe Float

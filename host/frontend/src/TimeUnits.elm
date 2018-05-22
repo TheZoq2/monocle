@@ -1,4 +1,10 @@
-module TimeUnits exposing (..)
+module TimeUnits exposing 
+    ( TimeUnit(..)
+    , Time
+    , toMicroseconds
+    , allTimeUnits
+    , timeUnitString
+    )
 
 type TimeUnit
     = Second
