@@ -65,6 +65,7 @@ type Msg
     | TimeSpanSet String
     | TimeSpanUnitSet TimeUnit
     | TriggerChannelSet Int
+    | ResetValues
 
 
 
@@ -113,6 +114,8 @@ update msg model =
                 ({model | timeSpan = { oldSpan | unit = unit }}, Cmd.none)
         TriggerChannelSet index ->
             ({model | triggerChannel = index}, Cmd.none)
+        ResetValues ->
+            ({model | readings = []}, Cmd.none)
 
 
 
@@ -142,6 +145,8 @@ trigFunction mode =
         Continuous -> continuousRead
         RisingEdge -> isRisingEdge
         FallingEdge -> isFallingEdge
+
+
 -- View
 
 view : Model -> Html Msg
@@ -169,16 +174,16 @@ view model =
                 <| List.map (\(time, val) -> if val then (time, 1) else (time, 0)) readingList
               ]
 
-        buttonRow = div []
-            ([ label [] [text ("Trigger mode: ")]
-            ]
-            ++
-                ( singleChoiseSelector
+        triggerModeButtons = 
+                singleChoiseSelector
                     model.triggerMode
                     allTriggerModes
                     triggerModeSymbol
                     TriggerModeSet
-                )
+
+        triggerModeRow = div []
+            (  [label [] [text ("Trigger mode: ")]]
+            ++ triggerModeButtons
             )
 
         timeSpanSelection =
@@ -200,14 +205,18 @@ view model =
                     TriggerChannelSet
                   )
                 )
+
+        buttonRow = [div [] [button [onClick ResetValues] [text "Reset"]]]
     in
         div []
-            <|  [ buttonRow
+            <|  [ triggerModeRow
                 , triggerChannelSelector
                 , timeSpanSelection
                 ]
                 ++
-                (List.map graphFunction readings)
+                (List.map (\reading -> div [] [graphFunction reading]) readings)
+                ++
+                buttonRow
 
 timeUnitSelector : TimeUnit -> (TimeUnit -> Msg) -> List (Html Msg)
 timeUnitSelector currentUnit msg =
