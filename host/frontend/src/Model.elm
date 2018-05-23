@@ -1,4 +1,4 @@
-module Model exposing (Model, init)
+module Model exposing (Model, init, MouseDragReceiver(..))
 
 import Types exposing (Reading, TriggerMode(..))
 import TimeUnits exposing (Time, TimeUnit(..))

@@ -17,5 +17,6 @@ type Msg
     | TimeSpanUnitSet TimeUnit
     | TriggerChannelSet Int
     | ResetValues
-    | MouseGlobalMove Mouse.Position
-    | MouseGlobalUp Mouse.Position
+    | MouseGlobalMove Mouse.Event
+    | MouseGlobalUp Mouse.Event
+    | GraphClicked Mouse.Event

@@ -11,6 +11,7 @@ import Svg.Attributes
 -- External imports
 
 import List.Extra
+import Mouse
 import Graph
 
 -- Main imports
@@ -77,6 +78,22 @@ singleChoiseSelector current choises nameFunction msg =
         )
         choises
 
+
+drawGraph : (Int, Int) -> (Float, Float) -> List (Float, Bool) -> Html Msg
+drawGraph (viewWidth, viewHeight) valueRange readingList =
+    div [Mouse.onDown GraphClicked]
+        [ Svg.svg
+            [ Svg.Attributes.viewBox <| "0 0 " ++ (toString viewWidth) ++ " " ++ (toString viewHeight)
+            , Svg.Attributes.width <| toString viewWidth ++ "px"
+            , Svg.Attributes.height <| toString viewHeight ++ "px"
+            ]
+            [ Graph.drawHorizontalLines (viewWidth, viewHeight) (0,1) 1
+            , Graph.drawGraph (viewWidth, viewHeight) (0,1) valueRange
+              <| List.map (\(time, val) -> if val then (time, 1) else (time, 0)) readingList
+            ]
+        ]
+
+
 view : Model -> Html Msg
 view model =
     let
@@ -88,19 +105,10 @@ view model =
             (toMicroseconds model.timeSpan)
             (Maybe.withDefault [] <| List.Extra.getAt model.triggerChannel readings)
 
-        (viewWidth, viewHeight) = (600, 50)
+        graphViewSize = (600, 50)
 
-        graphFunction : List (Float, Bool) -> Html Msg
-        graphFunction readingList =
-            Svg.svg
-              [ Svg.Attributes.viewBox <| "0 0 " ++ (toString viewWidth) ++ " " ++ (toString viewHeight)
-              , Svg.Attributes.width <| toString viewWidth ++ "px"
-              , Svg.Attributes.height <| toString viewHeight ++ "px"
-              ]
-              [ Graph.drawHorizontalLines (viewWidth, viewHeight) (0,1) 1
-              , Graph.drawGraph (viewWidth, viewHeight) (0,1) valueRange
-                <| List.map (\(time, val) -> if val then (time, 1) else (time, 0)) readingList
-              ]
+        graphFunction = drawGraph graphViewSize valueRange
+
 
         triggerModeButtons = 
                 singleChoiseSelector
@@ -136,12 +144,34 @@ view model =
 
         buttonRow = [div [] [button [onClick ResetValues] [text "Reset"]]]
     in
-        div []
+        contentContainer model
             <|  [ triggerModeRow
                 , triggerChannelSelector
                 , timeSpanSelection
                 ]
                 ++
-                (List.map (\reading -> div [] [graphFunction reading]) readings)
+                (List.map graphFunction readings)
                 ++
                 buttonRow
+
+
+
+contentContainer : Model -> List (Html Msg) -> Html Msg
+contentContainer model children =
+    let
+        eventListeners =
+            if model.mouseDragReceiver == Nothing then
+                []
+            else
+                [ Mouse.onMove MouseGlobalMove
+                , Mouse.onUp MouseGlobalUp
+                ]
+    in
+    div
+        ( [ style [("width", "100%"), ("height", "100%")]
+          ]
+          ++
+          eventListeners
+        )
+        children
+

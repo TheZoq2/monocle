@@ -10,7 +10,7 @@ import Json.Decode
 
 -- Main imports
 import View exposing (view)
-import Model exposing (Model, init)
+import Model exposing (Model, init, MouseDragReceiver(..))
 import Msg exposing (Msg(..))
 
 -- Internal imports
@@ -67,10 +67,19 @@ update msg model =
             ({model | triggerChannel = index}, Cmd.none)
         ResetValues ->
             ({model | readings = []}, Cmd.none)
-        MouseGlobalMove position ->
-            (model, Cmd.none)
-        MouseGlobalUp position ->
+        MouseGlobalMove event ->
+            let
+                _ = Debug.log "got global move" 
+            in
+                (model, Cmd.none)
+        MouseGlobalUp event ->
             ({model | mouseDragReceiver = Nothing}, Cmd.none)
+        GraphClicked event ->
+            let
+                _ = Debug.log "Graph click event" event
+            in
+                ({model | mouseDragReceiver = Just Graph}, Cmd.none)
+
 
 
 
@@ -81,10 +90,6 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch <|
         [ WebSocket.listen url NewMessage ]
-        ++
-        case model.mouseDragReceiver of
-            Just _ -> [Mouse.moves MouseGlobalMove, Mouse.ups MouseGlobalUp]
-            Nothing -> []
 
 
 
