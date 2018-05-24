@@ -100,6 +100,9 @@ view model =
         readings = List.map stepPreprocessor 
             <| readingsToChannels (model.readings ++ [model.currentReading])
 
+        _ = Debug.log "model.readings" model.readings
+        _ = Debug.log "readings" readings
+
         valueRange = edgeTrigger
             (trigFunction model.triggerMode)
             (toMicroseconds model.timeSpan)

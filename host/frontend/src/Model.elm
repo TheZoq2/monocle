@@ -22,8 +22,8 @@ type alias Model =
 
 init : (Model, Cmd Msg)
 init =
-    ( { readings = []
-      , currentReading = (Reading [] 0)
+    ( { readings = initialReadings
+      , currentReading = (Reading [False, False] 400)
       , triggerMode = FallingEdge
       , timeSpan = Time Millisecond 1
       , triggerChannel = 1
@@ -33,3 +33,10 @@ init =
     )
 
 
+initialReadings : List Reading
+initialReadings =
+    [ Reading [False, False] 0
+    , Reading [True, False] 100
+    , Reading [False, True] 300
+    , Reading [True, True] 350
+    ]
