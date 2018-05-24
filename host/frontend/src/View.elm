@@ -100,17 +100,27 @@ view model =
         readings = List.map stepPreprocessor 
             <| readingsToChannels (model.readings ++ [model.currentReading])
 
-        _ = Debug.log "model.readings" model.readings
-        _ = Debug.log "readings" readings
 
         valueRange = edgeTrigger
             (trigFunction model.triggerMode)
             (toMicroseconds model.timeSpan)
             (Maybe.withDefault [] <| List.Extra.getAt model.triggerChannel readings)
 
-        graphViewSize = (600, 50)
+        graphViewX = 600
+        graphViewY = 50
+        graphViewSize = (graphViewX, graphViewY)
 
-        graphFunction = drawGraph graphViewSize valueRange
+        -- Calculate the graph offset
+        graphOffset = Graph.transformToGraphCoordinates 
+                False
+                graphViewX
+                valueRange
+                model.graphOffset
+
+        (displayMin, displayMax) = valueRange
+        displayRange = (displayMin - graphOffset, displayMax - graphOffset)
+
+        graphFunction = drawGraph graphViewSize displayRange
 
 
         triggerModeButtons = 

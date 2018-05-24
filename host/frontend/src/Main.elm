@@ -67,18 +67,29 @@ update msg model =
             ({model | triggerChannel = index}, Cmd.none)
         ResetValues ->
             ({model | readings = []}, Cmd.none)
-        MouseGlobalMove event ->
+        MouseGlobalMove {clientPos} ->
             let
-                _ = Debug.log "got global move" 
+                (newX, _) = clientPos
+                (oldX, _) = model.lastDragPos
+
+                offsetChange = case model.mouseDragReceiver of
+                    Just Graph ->
+                        newX - oldX
+                    _ ->
+                        0
             in
-                (model, Cmd.none)
+                ( {model 
+                    | lastDragPos = clientPos
+                    , graphOffset = model.graphOffset + offsetChange
+                  }
+                , Cmd.none)
         MouseGlobalUp event ->
             ({model | mouseDragReceiver = Nothing}, Cmd.none)
         GraphClicked event ->
-            let
-                _ = Debug.log "Graph click event" event
-            in
-                ({model | mouseDragReceiver = Just Graph}, Cmd.none)
+            ({model
+                | mouseDragReceiver = Just Graph
+                , lastDragPos = event.clientPos
+            }, Cmd.none)
 
 
 

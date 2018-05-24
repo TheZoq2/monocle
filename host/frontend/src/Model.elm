@@ -17,6 +17,8 @@ type alias Model =
     , timeSpan: Time
     , triggerChannel: Int
     , mouseDragReceiver: Maybe MouseDragReceiver
+    , lastDragPos: (Float, Float)
+    , graphOffset: Float
     }
 
 
@@ -28,6 +30,8 @@ init =
       , timeSpan = Time Millisecond 1
       , triggerChannel = 1
       , mouseDragReceiver = Nothing
+      , lastDragPos = (0,0)
+      , graphOffset = 0
     }
     , Cmd.none
     )
