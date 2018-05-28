@@ -175,6 +175,7 @@ contentContainer model children =
             else
                 [ Mouse.onMove MouseGlobalMove
                 , Mouse.onUp MouseGlobalUp
+                , Mouse.onLeave MouseGlobalLeave
                 ]
     in
     div

@@ -83,7 +83,9 @@ update msg model =
                     , graphOffset = model.graphOffset + offsetChange
                   }
                 , Cmd.none)
-        MouseGlobalUp event ->
+        MouseGlobalLeave _ ->
+            ({model | mouseDragReceiver = Nothing}, Cmd.none)
+        MouseGlobalUp _ ->
             ({model | mouseDragReceiver = Nothing}, Cmd.none)
         GraphClicked event ->
             ({model
