@@ -111,11 +111,8 @@ view model =
         graphViewSize = (graphViewX, graphViewY)
 
         -- Calculate the graph offset
-        graphOffset = Graph.transformToGraphCoordinates 
-                False
-                graphViewX
-                valueRange
-                model.graphOffset
+        graphOffset = 
+            model.graphOffset / graphViewX * (Tuple.second valueRange - Tuple.first valueRange)
 
         (displayMin, displayMax) = valueRange
         displayRange = (displayMin - graphOffset, displayMax - graphOffset)
