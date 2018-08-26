@@ -51,18 +51,18 @@ update msg model =
                         in
                             (model, Cmd.none)
         TriggerModeSet mode ->
-            ({model | triggerMode = mode}, Cmd.none)
+            ({model | triggerMode = mode} |> resetOffset, Cmd.none)
         TimeSpanSet val ->
             let
                 asFloat = Result.withDefault model.timeSpan.value <| String.toFloat val
                 oldSpan = model.timeSpan
             in
-                ({model | timeSpan = { oldSpan | value = asFloat }}, Cmd.none)
+                ({model | timeSpan = { oldSpan | value = asFloat }} |> resetOffset, Cmd.none)
         TimeSpanUnitSet unit ->
             let
                 oldSpan = model.timeSpan
             in
-                ({model | timeSpan = { oldSpan | unit = unit }}, Cmd.none)
+                ({model | timeSpan = { oldSpan | unit = unit }} |> resetOffset, Cmd.none)
         TriggerChannelSet index ->
             ({model | triggerChannel = index}, Cmd.none)
         ResetValues ->
@@ -94,6 +94,10 @@ update msg model =
             }, Cmd.none)
 
 
+
+resetOffset : Model -> Model
+resetOffset model =
+    {model | graphOffset = 0}
 
 
 

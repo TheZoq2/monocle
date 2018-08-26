@@ -13,6 +13,7 @@ import Svg.Attributes
 import List.Extra
 import Mouse
 import Graph
+import Style
 
 -- Main imports
 
@@ -68,12 +69,15 @@ singleChoiseSelector : a -> List a -> (a -> String) -> (a -> Msg) -> List (Html 
 singleChoiseSelector current choises nameFunction msg =
     List.map
         (\alternative ->
-            button [onClick (msg alternative)] 
-                [(if alternative == current then
-                    b []
-                else 
-                    span []
-                ) [text <| nameFunction alternative]
+            button
+                [ onClick (msg alternative)
+                , (if alternative == current then
+                        Style.class [Style.SelectedButton]
+                    else 
+                        Style.class []
+                    )
+                ]
+                [ text <| nameFunction alternative
                 ]
         )
         choises
@@ -81,7 +85,7 @@ singleChoiseSelector current choises nameFunction msg =
 
 drawGraph : (Int, Int) -> (Float, Float) -> List (Float, Bool) -> Html Msg
 drawGraph (viewWidth, viewHeight) valueRange readingList =
-    div [Mouse.onDown GraphClicked]
+    div [Style.class [Style.Graph], Mouse.onDown GraphClicked]
         [ Svg.svg
             [ Svg.Attributes.viewBox <| "0 0 " ++ (toString viewWidth) ++ " " ++ (toString viewHeight)
             , Svg.Attributes.width <| toString viewWidth ++ "px"
@@ -155,9 +159,11 @@ view model =
         buttonRow = [div [] [button [onClick ResetValues] [text "Reset"]]]
     in
         contentContainer model
-            <|  [ triggerModeRow
-                , triggerChannelSelector
-                , timeSpanSelection
+            <|  [ div [Style.class [Style.ButtonRow]]
+                    [ triggerModeRow
+                    , triggerChannelSelector
+                    , timeSpanSelection
+                    ]
                 ]
                 ++
                 (List.map graphFunction readings)
@@ -179,7 +185,7 @@ contentContainer model children =
                 ]
     in
     div
-        ( [ style [("width", "100%"), ("height", "100%")]
+        ( [ Style.class [Style.Content]
           ]
           ++
           eventListeners

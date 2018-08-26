@@ -12,17 +12,31 @@ pub fn http_server() {
     let server = Server::new(|request, mut response| {
         println!("Request received. {} {}", request.method(), request.uri());
 
-        // let file = include_str!("../frontend/index.html");
-        let content = File::open("frontend/index.html")
-            .and_then(|mut file| {
-                let mut content = String::new();
-                file.read_to_string(&mut content)?;
+        if request.uri() == "/" {
+            // let file = include_str!("../frontend/index.html");
+            let content = File::open("frontend/output/index.html")
+                .and_then(|mut file| {
+                    let mut content = String::new();
+                    file.read_to_string(&mut content)?;
 
-                Ok(content)
-            })
-            .unwrap_or_else(|err| format!("{:#?}", err));
+                    Ok(content)
+                })
+                .unwrap_or_else(|err| format!("{:#?}", err));
 
-        Ok(response.body(content.into_bytes())?)
+            Ok(response.body(content.into_bytes())?)
+        }
+        else {
+            let content = File::open(&format!("frontend/output/{}", request.uri()))
+                .and_then(|mut file| {
+                    let mut content = String::new();
+                    file.read_to_string(&mut content)?;
+
+                    Ok(content)
+                })
+                .unwrap_or_else(|err| format!("{:#?}", err));
+
+            Ok(response.body(content.into_bytes())?)
+        }
     });
 
     println!("Http server listening on on http://localhost:{}", port);
