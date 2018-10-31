@@ -1,8 +1,13 @@
-#![feature(proc_macro)]
 #![no_std]
+#![no_main]
 
 #[macro_use(block)]
 extern crate nb;
+
+extern crate cortex_m;
+extern crate cortex_m_semihosting;
+#[macro_use]
+extern crate cortex_m_rt as rt;
 
 extern crate cortex_m_rtfm as rtfm;
 extern crate stm32f103xx;
@@ -11,6 +16,8 @@ extern crate embedded_hal;
 extern crate embedded_hal_time;
 extern crate heapless;
 extern crate panic_abort;
+extern crate usb_device;
+extern crate stm32f103xx_usb;
 
 extern crate arrayvec;
 
@@ -35,6 +42,9 @@ use stm32f103xx::EXTI;
 use stm32f103xx::TIM2 as HwTIM2;
 use stm32f103xx::TIM3 as HwTIM3;
 use stm32f103xx::TIM4 as HwTIM4;
+use rt::ExceptionFrame;
+use usb_device::prelude::*;
+use stm32f103xx_usb::{bus, UsbBus};
 
 
 use rtfm::{app, Threshold, Resource};
@@ -42,6 +52,7 @@ use rtfm::{app, Threshold, Resource};
 #[macro_use]
 mod macros;
 mod channels;
+mod cdc;
 // mod stopwatch;
 
 const BUFFER_SIZE: usize = 200;
@@ -58,8 +69,7 @@ app! {
         static CONSUMER: Consumer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static PRODUCER: Producer<'static, Reading, [Reading; BUFFER_SIZE]>;
         static MONO_TIMER: mono_timer::MonoTimer32bit<HwTIM3, HwTIM4>;
-        static TX: serial::Tx<HwUSART2>;
-        static RX: serial::Rx<HwUSART2>;
+        static SERIAL: cdc::SerialPort<'static, bus::UsbBus>;
         static PIN1: gpioa::PA8<gpio::Input<gpio::Floating>>;
         static PIN2: gpioa::PA9<gpio::Input<gpio::Floating>>;
         static EXTI: EXTI;
@@ -69,7 +79,7 @@ app! {
     },
 
     idle: {
-        resources: [CONSUMER, TX, OUTPUT_PIN]
+        resources: [CONSUMER, SERIAL, OUTPUT_PIN]
     },
 
     tasks: {
@@ -78,14 +88,9 @@ app! {
             resources: [PRODUCER, MONO_TIMER, PIN1, PIN2, EXTI],
             priority: 3,
         },
-        USART2: {
-            path: on_rx,
-            resources: [EXTI, RX, TX, FREQUENCY],
-            priority: 2
-        },
         TIM2: {
             path: on_timer,
-            resources: [TX, MONO_TIMER, TIMER2],
+            resources: [SERIAL, MONO_TIMER, TIMER2],
             priority: 1,
         }
     },
@@ -98,25 +103,44 @@ fn init(p: init::Peripherals) -> init::LateResources {
     let mut gpiob = p.device.GPIOB.split(&mut rcc.apb2);
     let mut gpioc = p.device.GPIOC.split(&mut rcc.apb2);
     let mut afio = p.device.AFIO.constrain(&mut rcc.apb2);
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc.cfgr
+        .hse(8.mhz())
+        .sysclk(48.mhz())
+        .pclk1(24.mhz())
+        .freeze(&mut flash.acr);
+
+    assert!(clocks.usbclk_valid());
+
+    let usb_bus = UsbBus::usb(p.device.USB, &mut rcc.apb1);
+    usb_bus.borrow_mut().enable_reset(&clocks, &mut gpioa.crh, gpioa.pa12);
+    let serial = cdc::SerialPort::new(&usb_bus);
+
+    let usb_dev = UsbDevice::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
+            .manufacturer("Your mom inc.")
+            .product("Monocle")
+            .serial_number("TEST")
+            .device_class(cdc::USB_CLASS_CDC)
+            .build(&[&serial]);
+
+    usb_dev.force_reset().expect("reset failed");
 
     // Setup the timer to send regular updates about the current time
     let mut timer2 = timer::Timer::tim2(p.device.TIM2, time::Hertz(1), clocks, &mut rcc.apb1);
     timer2.listen(timer::Event::Update);
     timer2.start_real(CURRENT_TIME_SEND_RATE);
 
-    let tx = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
-    let rx = gpioa.pa3.into_floating_input(&mut gpioa.crl);
-    let mut serial = serial::Serial::usart2(
-        p.device.USART2,
-        (tx, rx),
-        &mut afio.mapr,
-        115200.bps(),
-        clocks,
-        &mut rcc.apb1
-    );
-    serial.listen(serial::Event::Rxne);
-    let (tx, rx) = serial.split();
+    // let tx = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
+    // let rx = gpioa.pa3.into_floating_input(&mut gpioa.crl);
+    // let mut serial = serial::Serial::usart2(
+    //     p.device.USART2,
+    //     (tx, rx),
+    //     &mut afio.mapr,
+    //     115200.bps(),
+    //     clocks,
+    //     &mut rcc.apb1
+    // );
+    // serial.listen(serial::Event::Rxne);
+    // let (tx, rx) = serial.split();
 
     let mono_timer = mono_timer::MonoTimer32bit::tim34(
         p.device.TIM3,
@@ -139,6 +163,14 @@ fn init(p: init::Peripherals) -> init::LateResources {
 
     let mut output_pin = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
     output_pin.set_high();
+
+    loop {
+        usb_dev.poll();
+
+        if usb_dev.state() == UsbDeviceState::Configured {
+            break;
+        }
+    }
 
     init::LateResources {
         CONSUMER: consumer,
@@ -191,26 +223,26 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
 }
 
 
-fn on_rx(t: &mut Threshold, mut r: USART2::Resources) {
+fn on_rx(serial: cdc::SerialPort<'static, bus::UsbBus>) {
     // Read byte to reset state
-    let received = r.RX.read().unwrap();
+    let received = serial.read().unwrap();
 
     send_client_host_message!(
         &ClientHostMessage::FrequencyHertz(r.FREQUENCY.0),
         10,
-        r.TX,
+        serial,
         t
     );
     send_client_host_message!(
         &ClientHostMessage::Reset(1),
         10,
-        r.TX,
+        serial,
         t
     );
     send_client_host_message!(
         &ClientHostMessage::Reset(2),
         10,
-        r.TX,
+        serial,
         t
     );
 }
@@ -227,4 +259,16 @@ fn on_timer(t: &mut Threshold, mut r: TIM2::Resources) {
         r.TX,
         t
     );
+}
+
+
+
+exception!(HardFault, hard_fault);
+fn hard_fault(ef: &ExceptionFrame) -> ! {
+    panic!("{:#?}", ef);
+}
+
+exception!(*, default_handler);
+fn default_handler(irqn: i16) {
+    panic!("Unhandled exception (IRQn = {})", irqn);
 }

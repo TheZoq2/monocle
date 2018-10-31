@@ -1,3 +1,6 @@
 [submodule "host/frontend/elm-graph"]
 	path = host/frontend/elm-graph
 	url = git@github.com:TheZoq2/elm-graph.git
+[submodule "stm32f103xx-usb"]
+	path = stm32f103xx-usb
+	url = git@github.com:TheZoq2/stm32f103xx-usb.git

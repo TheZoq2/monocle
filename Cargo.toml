@@ -21,24 +21,26 @@ debug = true
 opt-level = 3
 
 [dependencies]
-cortex-m = "0.4.3"
-cortex-m-rtfm = "0.3.1"
+cortex-m = "0.5.2"
+cortex-m-rtfm = {git = "http://github.com/ykomatsu/cortex-m-rtfm", branch = "update"}
 nb = "0.1.1"
 heapless="0.2.4"
-cortex-m-semihosting = "0.2.0"
+cortex-m-semihosting = "0.3.0"
 api = {path = "api"}
-panic-abort = "0.1.1"
+panic-abort = "0.2.0"
+usb-device = { git = "https://github.com/mvirkkunen/usb-device", rev = "60db7e175e6dcea0b9c0f6b56564d1253bf0fd90" }
+stm32f103xx-usb = {path = "stm32f103xx-usb"}
 
 [dependencies.embedded-hal]
-version = "0.1.1"
+version = "0.2.1"
 features = ["unproven"]
 
 # stm32f30x-hal = "0.1.2"
 # stm32f30x-hal = {path = "../../stm32f30x-hal"}
 
 [dependencies.cortex-m-rt]
-version = "0.3.12"
-features = ["abort-on-panic"]
+version = "0.5.0"
+features = ["device"]
 
 
 #f [dependencies.stm32f30x]
@@ -51,7 +53,7 @@ path = "../../stm32f103xx-hal"
 features = ["time_units"]
 
 [dependencies.stm32f103xx]
-version = "0.9.0"
+version = "0.10.0"
 features = ["rt"]
 
 
