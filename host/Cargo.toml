@@ -9,7 +9,7 @@ debug-assertions=false
 [dependencies]
 serial = "0.4.0"
 api = {path = "../api"}
-websocket = "0.20.2"
+websocket = "0.21.0"
 
 serde = "1.0.34"
 serde_derive = "1.0.34"
