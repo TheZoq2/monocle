@@ -1,5 +1,6 @@
 #![feature(proc_macro)]
 #![no_std]
+#![no_main]
 
 #[macro_use(block)]
 extern crate nb;
