@@ -51,6 +51,10 @@ globalStyle =
             ]
         , Css.class Graph
             [ margin2 (px 10) (px 0)
+            , Css.descendants
+                [ polyline
+                    [ property "stroke-width" "2px" ]
+                ]
             ]
         , Css.class ButtonRow
             [ margin2 (px 5) zero
