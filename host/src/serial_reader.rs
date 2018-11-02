@@ -34,6 +34,7 @@ fn init_serial_port(name: &::std::ffi::OsString) -> io::Result<serial::SystemPor
     port.reconfigure(&|settings| {
         //settings.set_baud_rate(serial::Baud115200)?;
         settings.set_baud_rate(serial::Baud115200)?;
+        settings.set_flow_control(serial::FlowControl::FlowNone);
         Ok(())
     })?;
 
