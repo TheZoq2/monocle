@@ -11,7 +11,7 @@ extern crate stm32f103xx_hal;
 extern crate embedded_hal;
 extern crate embedded_hal_time;
 extern crate heapless;
-extern crate panic_abort;
+extern crate panic_semihosting;
 
 extern crate arrayvec;
 
@@ -163,13 +163,13 @@ fn idle(t: &mut Threshold, mut r: idle::Resources) -> ! {
                 r.OUTPUT_PIN.set_low();
                 let mut buffer = [0; 10];
                 let message = ClientHostMessage::Reading(reading);
-                let byte_amount = message.encode(&mut buffer).unwrap();
+                let byte_amount = message.encode(&mut buffer).expect("Failed to encode reading");
                 r.OUTPUT_PIN.set_high();
 
                 //let mut tx = r.TX.lock_mut();
                 r.TX.claim_mut(t, |tx, _| {
                     for byte in buffer[..byte_amount].iter() {
-                        block!(tx.write(*byte)).unwrap()
+                        block!(tx.write(*byte)).expect("Failed to send reading")
                     }
                 })
             }
@@ -188,7 +188,7 @@ fn on_pin1(_t: &mut Threshold, mut r: EXTI9_5::Resources) {
 
     let reading = Reading::new(time, r.PIN1.is_high(), r.PIN2.is_high());
     // TODO: Error handling
-    r.PRODUCER.enqueue(reading).unwrap();
+    r.PRODUCER.enqueue(reading).expect("Failed to enqueue new reading");
 }
 
 
